@@ -7,12 +7,12 @@ import { formatClock } from '@/lib/format'
 import { ChipRow, CompactStepper } from './components/CompactStepper'
 import { MinutePicker } from './components/MinutePicker'
 import { compile } from './engine/compile'
-import { amrap, describe, forTime, interval, MODE_LABELS } from './engine/presets'
+import { amrap, describe, forTime, interval, MODE_LABELS, ratioInterval, ratioLabel } from './engine/presets'
 import type { CustomStep, TimerConfig, TimerMode } from './engine/types'
 import { deletePreset, savePreset } from './presetsRepo'
 import { useTimerStore } from './timerStore'
 
-const MODES: TimerMode[] = ['forTime', 'amrap', 'emom', 'interval', 'custom']
+const MODES: TimerMode[] = ['forTime', 'amrap', 'emom', 'interval', 'ratioInterval', 'custom']
 
 const MODE_HINTS: Record<TimerMode, string> = {
   forTime: 'Count-up clock with a time cap. Hit Finish to record your time.',
@@ -46,6 +46,8 @@ export function TimerSetupScreen() {
   const [intWorkSec, setIntWorkSec] = useState(40)
   const [intRestSec, setIntRestSec] = useState(20)
   const [intRounds, setIntRounds] = useState(5)
+  const [ratioX, setRatioX] = useState(1)
+  const [ratioRounds, setRatioRounds] = useState(6)
   const [customSteps, setCustomSteps] = useState<CustomStep[]>([
     { kind: 'work', durationMs: 60 * SEC },
     { kind: 'rest', durationMs: 30 * SEC },
@@ -62,7 +64,9 @@ export function TimerSetupScreen() {
           ? { mode: 'emom', intervalMs: emomIntervalSec * SEC, rounds: emomRounds }
           : mode === 'interval'
             ? interval(intRounds, intWorkSec, intRestSec)
-            : { mode: 'custom', rounds: customRounds, steps: customSteps }
+            : mode === 'ratioInterval'
+              ? ratioInterval(ratioRounds, ratioX)
+              : { mode: 'custom', rounds: customRounds, steps: customSteps }
 
   const workoutMs = compile(config, 0).totalMs
 
@@ -83,6 +87,10 @@ export function TimerSetupScreen() {
         setIntWorkSec(Math.round(c.workMs / SEC))
         setIntRestSec(Math.round(c.restMs / SEC))
         setIntRounds(c.rounds)
+        break
+      case 'ratioInterval':
+        setRatioX(c.ratio)
+        setRatioRounds(c.rounds)
         break
       case 'custom':
         setCustomSteps(c.steps)
@@ -226,6 +234,32 @@ export function TimerSetupScreen() {
           </div>
         )}
 
+        {mode === 'ratioInterval' && (
+          <div className="flex flex-col gap-5">
+            <span className="text-sm font-semibold uppercase tracking-[0.15em] text-chalk-dim">
+              Work : rest
+            </span>
+            <ChipRow
+              values={[0.5, 1, 2]}
+              selected={ratioX}
+              format={ratioLabel}
+              onSelect={setRatioX}
+            />
+            <CompactStepper
+              label="Rounds"
+              display={`${ratioRounds}`}
+              onDecrement={() => setRatioRounds((v) => clampRounds(v - 1))}
+              onIncrement={() => setRatioRounds((v) => clampRounds(v + 1))}
+            />
+            <ChipRow
+              values={[3, 4, 5, 6, 8, 10]}
+              selected={ratioRounds}
+              format={(v) => `${v}`}
+              onSelect={setRatioRounds}
+            />
+          </div>
+        )}
+
         {mode === 'custom' && (
           <div className="flex flex-col gap-3">
             {customSteps.map((step, i) => (
@@ -317,7 +351,8 @@ export function TimerSetupScreen() {
 
       <div className="mb-3 flex items-center justify-between text-sm text-chalk-dim">
         <span>
-          {describe(config)} · total {formatClock(workoutMs)}
+          {describe(config)}
+          {mode !== 'ratioInterval' && ` · total ${formatClock(workoutMs)}`}
         </span>
         {savingName === null ? (
           <button
