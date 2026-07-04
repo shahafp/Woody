@@ -1,6 +1,10 @@
-import { ClipboardList, Dumbbell, History, Settings } from 'lucide-react'
+import { ClipboardList, History } from 'lucide-react'
 import { useEffect } from 'react'
 import { BrowserRouter, Route, Routes } from 'react-router'
+import { LiftDetailScreen } from '@/features/lifts/LiftDetailScreen'
+import { LiftsScreen } from '@/features/lifts/LiftsScreen'
+import { SettingsScreen } from '@/features/settings/SettingsScreen'
+import { useSettingsStore } from '@/features/settings/settingsStore'
 import { TimerRunScreen } from '@/features/timer/TimerRunScreen'
 import { TimerSetupScreen } from '@/features/timer/TimerSetupScreen'
 import { useTimerStore } from '@/features/timer/timerStore'
@@ -15,12 +19,14 @@ function TimerRunOverlay() {
 
 export default function App() {
   const restoreFromDb = useTimerStore((s) => s.restoreFromDb)
+  const hydrateSettings = useSettingsStore((s) => s.hydrate)
 
   // Crash/reload recovery: an unfinished workout picks up exactly where the
   // wall clock says it should be.
   useEffect(() => {
     void restoreFromDb()
-  }, [restoreFromDb])
+    void hydrateSettings()
+  }, [restoreFromDb, hydrateSettings])
 
   return (
     <BrowserRouter>
@@ -47,26 +53,9 @@ export default function App() {
               />
             }
           />
-          <Route
-            path="/lifts"
-            element={
-              <StubScreen
-                icon={Dumbbell}
-                title="LIFTS & MAXES"
-                body="Store your 1RMs and get instant percentage tables for any lift."
-              />
-            }
-          />
-          <Route
-            path="/settings"
-            element={
-              <StubScreen
-                icon={Settings}
-                title="SETTINGS"
-                body="Units, plate increments, sound and account will live here."
-              />
-            }
-          />
+          <Route path="/lifts" element={<LiftsScreen />} />
+          <Route path="/lifts/:id" element={<LiftDetailScreen />} />
+          <Route path="/settings" element={<SettingsScreen />} />
         </Routes>
       </AppShell>
       <TimerRunOverlay />

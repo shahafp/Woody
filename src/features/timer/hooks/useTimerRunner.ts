@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { useSettingsStore } from '@/features/settings/settingsStore'
 import { audioNow, scheduleCue } from '../audio/audioEngine'
 import { activeElapsed, cuesInWindow, isPaused } from '../engine/runtime'
 import type { CueSound } from '../engine/types'
@@ -59,7 +60,11 @@ export function useTimerRunner(): CueFlash | null {
       const last = due[due.length - 1]
       if (last) {
         setFlash({ sound: last.sound, key: Date.now() })
-        if (last.vibrate && 'vibrate' in navigator) {
+        if (
+          last.vibrate &&
+          'vibrate' in navigator &&
+          useSettingsStore.getState().vibrateEnabled
+        ) {
           navigator.vibrate(last.vibrate)
         }
       }
@@ -78,6 +83,7 @@ export function useTimerRunner(): CueFlash | null {
     raf = requestAnimationFrame(loop)
 
     heartbeat = window.setInterval(() => {
+      if (!useSettingsStore.getState().soundEnabled) return
       const ctxNow = audioNow()
       if (ctxNow === null) return
       const e = elapsedNow()
