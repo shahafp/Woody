@@ -129,13 +129,13 @@ export function TimerSetupScreen() {
         </div>
       )}
 
-      <div className="mt-4 flex flex-wrap gap-2">
+      <div className="mt-4 grid grid-cols-3 gap-2">
         {MODES.map((m) => (
           <button
             key={m}
             type="button"
             onClick={() => setMode(m)}
-            className={`shrink-0 rounded-xl px-4 py-2.5 text-base font-semibold ${
+            className={`rounded-xl px-2 py-2.5 text-base font-semibold ${
               mode === m
                 ? 'bg-chalk text-surface'
                 : 'bg-raised text-chalk-dim active:bg-edge'
