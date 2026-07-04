@@ -2,6 +2,9 @@ import type { CompiledTimer, Cue, Segment, TimerConfig } from './types'
 
 export const DEFAULT_PREP_MS = 10_000
 
+/** Safety cap for an open work segment — ends an abandoned session eventually. */
+export const OPEN_CAP_MS = 4 * 60 * 60_000
+
 /**
  * Compiles any timer config to a flat segment sequence with cues attached.
  * Named modes are presets over the same model; custom is the general case.
@@ -9,6 +12,7 @@ export const DEFAULT_PREP_MS = 10_000
 export function compile(
   config: TimerConfig,
   prepMs = DEFAULT_PREP_MS,
+  lapOffsetsMs: number[] = [],
 ): CompiledTimer {
   const segments: Segment[] = []
   let cursor = 0
@@ -19,6 +23,7 @@ export function compile(
     durationMs: number,
     round: number,
     totalRounds: number,
+    open = false,
   ) => {
     segments.push({
       index: segments.length,
@@ -28,6 +33,7 @@ export function compile(
       durationMs,
       round,
       totalRounds,
+      ...(open ? { open: true } : {}),
     })
     cursor += durationMs
   }
@@ -55,6 +61,22 @@ export function compile(
         }
       }
       break
+    case 'ratioInterval': {
+      const laps = lapOffsetsMs.slice(0, config.rounds)
+      laps.forEach((lapMs, i) => {
+        const r = i + 1
+        const workMs = Math.max(0, lapMs - cursor)
+        push('work', `Work ${r}/${config.rounds}`, workMs, r, config.rounds)
+        if (r < config.rounds) {
+          push('rest', `Rest ${r}/${config.rounds}`, Math.round(workMs * config.ratio), r, config.rounds)
+        }
+      })
+      if (laps.length < config.rounds) {
+        const r = laps.length + 1
+        push('work', `Work ${r}/${config.rounds}`, OPEN_CAP_MS, r, config.rounds, true)
+      }
+      break
+    }
     case 'custom':
       for (let r = 1; r <= config.rounds; r++) {
         config.steps.forEach((step, i) => {
@@ -76,25 +98,29 @@ export function compile(
   return {
     config,
     segments,
-    cues: buildCues(segments, cursor),
+    cues: buildCues(segments, cursor, config.mode === 'ratioInterval'),
     display: config.mode === 'forTime' ? 'up' : 'down',
     totalMs: cursor,
   }
 }
 
-function buildCues(segments: Segment[], totalMs: number): Cue[] {
+function buildCues(segments: Segment[], totalMs: number, dynamicWork: boolean): Cue[] {
   const cues: Cue[] = []
   for (const seg of segments) {
     const end = seg.startMs + seg.durationMs
     // 3-2-1 ticks announcing whatever comes at this segment's end.
-    if (seg.durationMs >= 4000) {
+    // Skipped for dynamic work segments: an open end is unknown, and a
+    // closed one is always already in the past.
+    const skipTicks = seg.open === true || (dynamicWork && seg.kind === 'work')
+    if (seg.durationMs >= 4000 && !skipTicks) {
       for (const back of [3000, 2000, 1000]) {
         cues.push({ atMs: end - back, sound: 'tick' })
       }
     }
     if (seg.kind === 'work') {
       cues.push({ atMs: seg.startMs, sound: 'go', vibrate: [200] })
-    } else if (seg.kind === 'rest') {
+    } else if (seg.kind === 'rest' && !dynamicWork) {
+      // Dynamic rests start at the lap tap, which plays the cue imperatively.
       cues.push({ atMs: seg.startMs, sound: 'transition', vibrate: [100, 80, 100] })
     }
   }
