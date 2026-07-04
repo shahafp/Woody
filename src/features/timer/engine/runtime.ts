@@ -16,6 +16,7 @@ export function activeElapsed(events: TimerEvent[], now: number): number {
   let elapsed = 0
   let runningSince: number | null = null
   for (const e of events) {
+    if (e.type === 'lap') continue
     if (e.type === 'start' || e.type === 'resume') {
       if (runningSince === null) runningSince = e.at
     } else if (runningSince !== null) {
@@ -29,6 +30,28 @@ export function activeElapsed(events: TimerEvent[], now: number): number {
 
 export function isPaused(events: TimerEvent[]): boolean {
   return events[events.length - 1]?.type === 'pause'
+}
+
+/**
+ * Active-time offsets (same domain as Segment.startMs) of each lap event.
+ * Pause-aware by construction: the same fold as activeElapsed, sampled at
+ * each lap.
+ */
+export function lapOffsets(events: TimerEvent[]): number[] {
+  const offsets: number[] = []
+  let elapsed = 0
+  let runningSince: number | null = null
+  for (const e of events) {
+    if (e.type === 'lap') {
+      offsets.push(elapsed + (runningSince !== null ? e.at - runningSince : 0))
+    } else if (e.type === 'start' || e.type === 'resume') {
+      if (runningSince === null) runningSince = e.at
+    } else if (runningSince !== null) {
+      elapsed += e.at - runningSince
+      runningSince = null
+    }
+  }
+  return offsets
 }
 
 export function segmentAt(

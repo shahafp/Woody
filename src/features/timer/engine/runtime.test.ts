@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { compile } from './compile'
-import { activeElapsed, computeView, cuesInWindow } from './runtime'
+import { activeElapsed, computeView, cuesInWindow, lapOffsets } from './runtime'
 import type { TimerEvent } from './types'
 
 const MIN = 60_000
@@ -27,6 +27,32 @@ describe('activeElapsed', () => {
   it('stops at finish', () => {
     const events = ev(['start', 0], ['finish', 372_000])
     expect(activeElapsed(events, T0 + 500_000)).toBe(372_000)
+  })
+
+  it('ignores lap events — the clock keeps running through a tap', () => {
+    const events = ev(['start', 0], ['lap', 40_000])
+    expect(activeElapsed(events, T0 + 60_000)).toBe(60_000)
+  })
+})
+
+describe('lapOffsets', () => {
+  it('maps laps to active-time offsets', () => {
+    const events = ev(['start', 0], ['lap', 107_000], ['lap', 250_000])
+    expect(lapOffsets(events)).toEqual([107_000, 250_000])
+  })
+
+  it('is pause-aware: a lap after a pause excludes the paused span', () => {
+    const events = ev(['start', 0], ['pause', 30_000], ['resume', 90_000], ['lap', 100_000])
+    expect(lapOffsets(events)).toEqual([40_000])
+  })
+
+  it('a lap while paused lands at the pause point', () => {
+    const events = ev(['start', 0], ['pause', 30_000], ['lap', 50_000])
+    expect(lapOffsets(events)).toEqual([30_000])
+  })
+
+  it('no laps → empty', () => {
+    expect(lapOffsets(ev(['start', 0]))).toEqual([])
   })
 })
 
