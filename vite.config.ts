@@ -23,8 +23,8 @@ export default defineConfig({
         ],
       },
       manifest: {
-        name: 'WOD Time',
-        short_name: 'WOD Time',
+        name: 'Woody',
+        short_name: 'Woody',
         description: 'Timers, weights and workout log for CrossFit athletes',
         display: 'standalone',
         orientation: 'portrait',
