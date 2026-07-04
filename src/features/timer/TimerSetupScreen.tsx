@@ -129,7 +129,7 @@ export function TimerSetupScreen() {
         </div>
       )}
 
-      <div className="mt-4 flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none]">
+      <div className="mt-4 flex flex-wrap gap-2">
         {MODES.map((m) => (
           <button
             key={m}
