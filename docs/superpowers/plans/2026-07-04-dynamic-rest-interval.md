@@ -40,6 +40,7 @@ The config variant, mode label, and describe() must land together — `MODE_LABE
 - Test: `src/features/timer/engine/presets.test.ts` (new)
 - Modify: `src/features/timer/engine/types.ts`
 - Modify: `src/features/timer/engine/presets.ts`
+- Modify: `src/features/timer/TimerSetupScreen.tsx` (one line — `MODE_HINTS` is an exhaustive `Record<TimerMode, string>` too)
 
 - [ ] **Step 1: Write the failing test**
 
@@ -149,15 +150,25 @@ In `describe()`, add a case after `case 'interval':`'s return:
 Run: `npx vitest run src/features/timer/engine/presets.test.ts`
 Expected: PASS (3 tests)
 
-- [ ] **Step 6: Typecheck**
+- [ ] **Step 6: Satisfy the exhaustive `MODE_HINTS` record**
+
+In `src/features/timer/TimerSetupScreen.tsx`, `MODE_HINTS` is declared as `Record<TimerMode, string>`, so the new mode key is required for typecheck. Add after the `interval` entry:
+
+```tsx
+  ratioInterval: 'Work until you tap Round Done — rest matches your work time at the ratio you pick.',
+```
+
+(The rest of the setup UI for this mode lands in Task 8.)
+
+- [ ] **Step 7: Typecheck**
 
 Run: `npm run typecheck`
-Expected: clean. (`TimerSetupScreen` still compiles — its `mode === 'interval' ? … : custom` ternary chain stays type-valid; the new mode gets real setup UI in Task 8.)
+Expected: clean. (The `mode === 'interval' ? … : custom` config ternary chain stays type-valid until Task 8 wires the real config.)
 
-- [ ] **Step 7: Commit**
+- [ ] **Step 8: Commit**
 
 ```bash
-git add src/features/timer/engine/types.ts src/features/timer/engine/presets.ts src/features/timer/engine/presets.test.ts
+git add src/features/timer/engine/types.ts src/features/timer/engine/presets.ts src/features/timer/engine/presets.test.ts src/features/timer/TimerSetupScreen.tsx
 git commit -m "feat(timer): ratioInterval config variant, lap event, open-segment flag"
 ```
 
@@ -873,11 +884,7 @@ Update the mode list (the chip label comes from `MODE_LABELS.ratioInterval = '1:
 const MODES: TimerMode[] = ['forTime', 'amrap', 'emom', 'interval', 'ratioInterval', 'custom']
 ```
 
-Add to `MODE_HINTS` after the `interval` entry:
-
-```tsx
-  ratioInterval: 'Work until you tap Round Done — rest matches your work time at the ratio you pick.',
-```
+(The `MODE_HINTS.ratioInterval` entry already exists — it was added in Task 1 to keep the exhaustive record compiling.)
 
 - [ ] **Step 2: State, config, loadConfig**
 
