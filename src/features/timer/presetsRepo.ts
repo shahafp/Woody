@@ -13,11 +13,14 @@ export async function savePreset(
     config,
     createdAt: now,
     updatedAt: now,
+    deletedAt: null,
+    dirty: 1,
   }
   await db.timerPresets.put(row)
   return row
 }
 
 export async function deletePreset(id: string): Promise<void> {
-  await db.timerPresets.delete(id)
+  const now = new Date().toISOString()
+  await db.timerPresets.update(id, { deletedAt: now, updatedAt: now, dirty: 1 })
 }

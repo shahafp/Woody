@@ -27,7 +27,14 @@ const clampRounds = (r: number) => Math.min(99, Math.max(1, r))
 
 export function TimerSetupScreen() {
   const start = useTimerStore((s) => s.start)
-  const presets = useLiveQuery(() => db.timerPresets.orderBy('name').toArray(), [])
+  const presets = useLiveQuery(
+    () =>
+      db.timerPresets
+        .orderBy('name')
+        .filter((p) => p.deletedAt === null)
+        .toArray(),
+    [],
+  )
 
   const [mode, setMode] = useState<TimerMode>('amrap')
   const [amrapMin, setAmrapMin] = useState(12)

@@ -1,5 +1,6 @@
 import { t } from '@/lib/i18n/t'
 import type { Unit } from '@/lib/units/convert'
+import { AuthSection } from '@/features/auth/AuthSection'
 import { useSettingsStore } from './settingsStore'
 
 function Toggle({
@@ -111,11 +112,11 @@ export function SettingsScreen() {
         </div>
       </section>
 
-      <section className="mt-8">
+      <section className="mt-8 pb-4">
         <h2 className="text-sm font-semibold uppercase tracking-[0.15em] text-chalk-dim">
           {t('settings.account')}
         </h2>
-        <p className="mt-3 text-sm text-chalk-dim">{t('settings.accountHint')}</p>
+        <AuthSection />
       </section>
     </div>
   )

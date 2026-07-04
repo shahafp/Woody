@@ -1,5 +1,7 @@
 import { useEffect } from 'react'
 import { BrowserRouter, Route, Routes } from 'react-router'
+import { initSyncTriggers } from '@/lib/sync/engine'
+import { useAuthStore } from '@/features/auth/authStore'
 import { LiftDetailScreen } from '@/features/lifts/LiftDetailScreen'
 import { LiftsScreen } from '@/features/lifts/LiftsScreen'
 import { LogDetailScreen } from '@/features/log/LogDetailScreen'
@@ -22,13 +24,16 @@ function TimerRunOverlay() {
 export default function App() {
   const restoreFromDb = useTimerStore((s) => s.restoreFromDb)
   const hydrateSettings = useSettingsStore((s) => s.hydrate)
+  const initAuth = useAuthStore((s) => s.init)
 
   // Crash/reload recovery: an unfinished workout picks up exactly where the
   // wall clock says it should be.
   useEffect(() => {
     void restoreFromDb()
     void hydrateSettings()
-  }, [restoreFromDb, hydrateSettings])
+    initAuth()
+    return initSyncTriggers()
+  }, [restoreFromDb, hydrateSettings, initAuth])
 
   return (
     <BrowserRouter>

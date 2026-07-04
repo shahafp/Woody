@@ -21,6 +21,13 @@ export interface TimerPresetRow {
   config: TimerConfig
   createdAt: string
   updatedAt: string
+  deletedAt: string | null
+  dirty: 0 | 1
+}
+
+export interface SyncStateRow {
+  key: string
+  value: string
 }
 
 export class WodDb extends Dexie {
@@ -31,6 +38,7 @@ export class WodDb extends Dexie {
   liftMaxes!: Table<LiftMaxRow, string>
   wodSheets!: Table<WodSheetRow, string>
   workoutLogs!: Table<WorkoutLogRow, string>
+  syncState!: Table<SyncStateRow, string>
 
   constructor() {
     super('wod-time')
@@ -49,6 +57,20 @@ export class WodDb extends Dexie {
       wodSheets: 'id, date',
       workoutLogs: 'id, performedAt',
     })
+    this.version(5)
+      .stores({
+        syncState: 'key',
+      })
+      .upgrade((tx) =>
+        // presets predate the sync envelope — backfill it
+        tx
+          .table('timerPresets')
+          .toCollection()
+          .modify((p: Record<string, unknown>) => {
+            if (p.deletedAt === undefined) p.deletedAt = null
+            if (p.dirty === undefined) p.dirty = 1
+          }),
+      )
   }
 }
 
