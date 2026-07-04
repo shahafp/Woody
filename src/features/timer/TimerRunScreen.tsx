@@ -24,6 +24,7 @@ export function TimerRunScreen() {
   const pause = useTimerStore((s) => s.pause)
   const resume = useTimerStore((s) => s.resume)
   const finish = useTimerStore((s) => s.finish)
+  const lap = useTimerStore((s) => s.lap)
   const dismiss = useTimerStore((s) => s.dismiss)
   const flash = useTimerRunner()
   const navigate = useNavigate()
@@ -41,6 +42,7 @@ export function TimerRunScreen() {
   if (!compiled || !view) return null
 
   const { phase, segment } = view
+  const openWork = phase === 'running' && segment?.open === true
   const isForTime = compiled.config.mode === 'forTime'
   const finalStretch =
     phase === 'running' && view.totalRemainingMs <= 10_000
@@ -63,7 +65,9 @@ export function TimerRunScreen() {
         ? formatCountdown(view.segmentRemainingMs)
         : isForTime
           ? formatClock(view.workElapsedMs)
-          : formatCountdown(view.segmentRemainingMs)
+          : segment?.open
+            ? formatClock(view.segmentElapsedMs)
+            : formatCountdown(view.segmentRemainingMs)
 
   const eyebrow =
     phase === 'done'
@@ -128,8 +132,8 @@ export function TimerRunScreen() {
           if (!next || (segment && next.kind === segment.kind)) return null
           return (
             <span className="text-sm font-semibold uppercase tracking-[0.2em] text-chalk-dim">
-              next: {next.kind === 'rest' ? 'rest' : next.label}{' '}
-              {formatClock(next.durationMs)}
+              next: {next.kind === 'rest' ? 'rest' : next.label}
+              {next.open ? '' : ` ${formatClock(next.durationMs)}`}
             </span>
           )
         })()}
@@ -192,6 +196,15 @@ export function TimerRunScreen() {
                 className="h-16 flex-1 rounded-2xl bg-work font-display text-2xl tracking-wider text-surface"
               >
                 FINISH
+              </button>
+            )}
+            {openWork && (
+              <button
+                type="button"
+                onClick={lap}
+                className="h-16 flex-1 rounded-2xl bg-work font-display text-2xl tracking-wider text-surface"
+              >
+                {view.round >= view.totalRounds ? 'FINISH' : 'ROUND DONE'}
               </button>
             )}
           </div>
