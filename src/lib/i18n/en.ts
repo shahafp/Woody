@@ -40,6 +40,11 @@ export const en = {
   'auth.lastSync': 'Last sync',
   'auth.never': 'not yet',
   'auth.syncError': 'Sync problem',
+  'pwa.updateReady': 'Update ready',
+  'pwa.restart': 'Restart',
+  'pwa.installHint':
+    'Install WOD Time: tap Share, then “Add to Home Screen” for full-screen timers.',
+  'pwa.dismiss': 'Got it',
   'wod.title': 'TODAY’S WEIGHTS',
   'wod.empty':
     'Type in today’s strength work once — the bar loads are yours to read off, no whiteboard math.',

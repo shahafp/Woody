@@ -1,6 +1,7 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { Bookmark, X } from 'lucide-react'
 import { useState } from 'react'
+import { InstallHint } from '@/app/InstallHint'
 import { db } from '@/lib/db/db'
 import { formatClock } from '@/lib/format'
 import { ChipRow, CompactStepper } from './components/CompactStepper'
@@ -368,6 +369,7 @@ export function TimerSetupScreen() {
       <p className="mt-3 text-center text-xs text-chalk-dim">
         10 second countdown before the clock starts.
       </p>
+      <InstallHint />
     </div>
   )
 }

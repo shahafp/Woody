@@ -14,6 +14,8 @@ import { TimerSetupScreen } from '@/features/timer/TimerSetupScreen'
 import { useTimerStore } from '@/features/timer/timerStore'
 import { WodSheetScreen } from '@/features/wod-sheet/WodSheetScreen'
 import { AppShell } from './AppShell'
+import { ErrorBoundary } from './ErrorBoundary'
+import { UpdateToast } from './UpdateToast'
 
 function TimerRunOverlay() {
   const active = useTimerStore((s) => s.compiled !== null)
@@ -32,12 +34,15 @@ export default function App() {
     void restoreFromDb()
     void hydrateSettings()
     initAuth()
+    // ask the browser not to evict IndexedDB under storage pressure (iOS)
+    void navigator.storage?.persist?.()
     return initSyncTriggers()
   }, [restoreFromDb, hydrateSettings, initAuth])
 
   return (
-    <BrowserRouter>
-      <AppShell>
+    <ErrorBoundary>
+      <BrowserRouter>
+        <AppShell>
         <Routes>
           <Route path="/" element={<TimerSetupScreen />} />
           <Route path="/wod" element={<WodSheetScreen />} />
@@ -48,8 +53,10 @@ export default function App() {
           <Route path="/lifts/:id" element={<LiftDetailScreen />} />
           <Route path="/settings" element={<SettingsScreen />} />
         </Routes>
-      </AppShell>
-      <TimerRunOverlay />
-    </BrowserRouter>
+        </AppShell>
+        <TimerRunOverlay />
+        <UpdateToast />
+      </BrowserRouter>
+    </ErrorBoundary>
   )
 }
