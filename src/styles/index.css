@@ -1,0 +1,61 @@
+@import 'tailwindcss';
+
+@font-face {
+  font-family: 'Anton';
+  src: url('/fonts/anton-latin.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@theme {
+  /* surfaces — rubber floor blacks */
+  --color-surface: #0a0a0b;
+  --color-raised: #17171a;
+  --color-edge: #26262c;
+
+  /* ink — chalk whites */
+  --color-chalk: #f2f1ec;
+  --color-chalk-dim: #93939c;
+
+  /* states — the screen becomes the timer state */
+  --color-work: #c8f542; /* volt: work segments */
+  --color-rest: #ffb020; /* amber: rest segments */
+  --color-alarm: #ff453a; /* red: final seconds, time cap */
+
+  --font-display: 'Anton', 'Avenir Next Condensed', 'Arial Narrow', sans-serif;
+  --font-sans:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue',
+    Arial, sans-serif;
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    @apply bg-surface text-chalk font-sans antialiased;
+    touch-action: manipulation;
+    overscroll-behavior-y: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
+@keyframes cue-flash {
+  from {
+    opacity: 0.85;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes alarm-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
