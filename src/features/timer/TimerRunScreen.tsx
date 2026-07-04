@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { formatClock, formatCountdown } from '@/lib/format'
+import { SegmentBar } from './components/SegmentBar'
 import { TimeDigits } from './components/TimeDigits'
 import { describe } from './engine/presets'
 import type { CueSound } from './engine/types'
@@ -117,9 +118,21 @@ export function TimerRunScreen() {
               : `elapsed ${formatClock(view.workElapsedMs)}`}
           </span>
         )}
+        {(() => {
+          if (phase !== 'running' && phase !== 'prep') return null
+          const next = segment ? compiled.segments[segment.index + 1] : null
+          if (!next || (segment && next.kind === segment.kind)) return null
+          return (
+            <span className="text-sm font-semibold uppercase tracking-[0.2em] text-chalk-dim">
+              next: {next.kind === 'rest' ? 'rest' : next.label}{' '}
+              {formatClock(next.durationMs)}
+            </span>
+          )
+        })()}
       </main>
 
       <footer className="flex flex-col gap-3 px-5">
+        <SegmentBar compiled={compiled} elapsedMs={view.elapsedActiveMs} />
         {!wakeLockSupported && running && (
           <p className="text-center text-sm text-chalk-dim">
             Keep your screen on — this browser can’t hold it awake.
