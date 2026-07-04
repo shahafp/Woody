@@ -1,15 +1,17 @@
-import { ClipboardList, History } from 'lucide-react'
 import { useEffect } from 'react'
 import { BrowserRouter, Route, Routes } from 'react-router'
 import { LiftDetailScreen } from '@/features/lifts/LiftDetailScreen'
 import { LiftsScreen } from '@/features/lifts/LiftsScreen'
+import { LogDetailScreen } from '@/features/log/LogDetailScreen'
+import { LogEntryFormScreen } from '@/features/log/LogEntryFormScreen'
+import { LogListScreen } from '@/features/log/LogListScreen'
 import { SettingsScreen } from '@/features/settings/SettingsScreen'
 import { useSettingsStore } from '@/features/settings/settingsStore'
 import { TimerRunScreen } from '@/features/timer/TimerRunScreen'
 import { TimerSetupScreen } from '@/features/timer/TimerSetupScreen'
 import { useTimerStore } from '@/features/timer/timerStore'
+import { WodSheetScreen } from '@/features/wod-sheet/WodSheetScreen'
 import { AppShell } from './AppShell'
-import { StubScreen } from './StubScreen'
 
 function TimerRunOverlay() {
   const active = useTimerStore((s) => s.compiled !== null)
@@ -33,26 +35,10 @@ export default function App() {
       <AppShell>
         <Routes>
           <Route path="/" element={<TimerSetupScreen />} />
-          <Route
-            path="/wod"
-            element={
-              <StubScreen
-                icon={ClipboardList}
-                title="TODAY’S WEIGHTS"
-                body="Build your strength sets with percentages and see exact loads — no whiteboard needed. Coming in the next update."
-              />
-            }
-          />
-          <Route
-            path="/log"
-            element={
-              <StubScreen
-                icon={History}
-                title="TRAINING LOG"
-                body="Finished workouts will be saved here — times, rounds, loads and PRs."
-              />
-            }
-          />
+          <Route path="/wod" element={<WodSheetScreen />} />
+          <Route path="/log" element={<LogListScreen />} />
+          <Route path="/log/new" element={<LogEntryFormScreen />} />
+          <Route path="/log/:id" element={<LogDetailScreen />} />
           <Route path="/lifts" element={<LiftsScreen />} />
           <Route path="/lifts/:id" element={<LiftDetailScreen />} />
           <Route path="/settings" element={<SettingsScreen />} />

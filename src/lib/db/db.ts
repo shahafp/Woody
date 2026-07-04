@@ -1,6 +1,12 @@
 import Dexie, { type Table } from 'dexie'
 import type { TimerConfig, TimerEvent } from '@/features/timer/engine/types'
-import type { LiftMaxRow, LiftRow, SettingsRow } from './types'
+import type {
+  LiftMaxRow,
+  LiftRow,
+  SettingsRow,
+  WodSheetRow,
+  WorkoutLogRow,
+} from './types'
 
 export interface ActiveSessionRow {
   id: 'current'
@@ -23,6 +29,8 @@ export class WodDb extends Dexie {
   settings!: Table<SettingsRow, string>
   lifts!: Table<LiftRow, string>
   liftMaxes!: Table<LiftMaxRow, string>
+  wodSheets!: Table<WodSheetRow, string>
+  workoutLogs!: Table<WorkoutLogRow, string>
 
   constructor() {
     super('wod-time')
@@ -36,6 +44,10 @@ export class WodDb extends Dexie {
       settings: 'id',
       lifts: 'id, sortOrder',
       liftMaxes: 'id, liftId, recordedAt',
+    })
+    this.version(4).stores({
+      wodSheets: 'id, date',
+      workoutLogs: 'id, performedAt',
     })
   }
 }

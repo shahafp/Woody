@@ -1,3 +1,4 @@
+import type { TimerConfig } from '@/features/timer/engine/types'
 import type { Unit } from '@/lib/units/convert'
 
 /**
@@ -39,4 +40,35 @@ export interface SettingsRow extends Row {
   soundEnabled: boolean
   vibrateEnabled: boolean
   locale: 'en'
+}
+
+export interface WodSheetBlock {
+  id: string
+  liftId: string
+  sets: number
+  reps: number
+  percent: number
+}
+
+/** One day's strength work — blocks are edited and synced as a unit (JSONB). */
+export interface WodSheetRow extends Row {
+  /** ISO date (yyyy-mm-dd). */
+  date: string
+  title: string
+  blocks: WodSheetBlock[]
+}
+
+export type LogResultType = 'time' | 'rounds_reps' | 'load' | 'none'
+
+export interface WorkoutLogRow extends Row {
+  /** ISO date (yyyy-mm-dd). */
+  performedAt: string
+  title: string
+  description: string
+  /** Provenance when the entry came from a finished timer. */
+  timerConfig: TimerConfig | null
+  resultType: LogResultType
+  result: { timeMs?: number; rounds?: number; reps?: number; loadKg?: number }
+  rx: boolean
+  notes: string | null
 }

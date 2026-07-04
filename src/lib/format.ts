@@ -18,3 +18,18 @@ export function formatClock(ms: number): string {
 export function formatCountdown(ms: number): string {
   return formatClock(Math.ceil(Math.max(0, ms) / 1000) * 1000)
 }
+
+/**
+ * Parse "17:42", "1:02:33", or plain seconds ("95") into ms.
+ * Returns null when the string isn't a time.
+ */
+export function parseClock(input: string): number | null {
+  const parts = input.trim().split(':')
+  if (parts.length > 3 || parts.some((p) => p === '' || !/^\d+$/.test(p))) {
+    return null
+  }
+  const nums = parts.map(Number)
+  let seconds = 0
+  for (const n of nums) seconds = seconds * 60 + n
+  return seconds * 1000
+}

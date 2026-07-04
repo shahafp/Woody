@@ -1,5 +1,8 @@
 import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router'
 import { formatClock, formatCountdown } from '@/lib/format'
+import { t } from '@/lib/i18n/t'
+import { setLogDraft } from '@/features/log/logDraft'
 import { SegmentBar } from './components/SegmentBar'
 import { TimeDigits } from './components/TimeDigits'
 import { describe } from './engine/presets'
@@ -23,6 +26,7 @@ export function TimerRunScreen() {
   const finish = useTimerStore((s) => s.finish)
   const dismiss = useTimerStore((s) => s.dismiss)
   const flash = useTimerRunner()
+  const navigate = useNavigate()
 
   const running = view?.phase === 'prep' || view?.phase === 'running'
   useWakeLock(running)
@@ -139,13 +143,35 @@ export function TimerRunScreen() {
           </p>
         )}
         {phase === 'done' ? (
-          <button
-            type="button"
-            onClick={dismiss}
-            className="h-16 w-full rounded-2xl bg-raised font-display text-2xl tracking-wider text-chalk"
-          >
-            CLOSE
-          </button>
+          <div className="flex gap-3">
+            <button
+              type="button"
+              onClick={dismiss}
+              className="h-16 flex-1 rounded-2xl bg-raised font-display text-2xl tracking-wider text-chalk"
+            >
+              CLOSE
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setLogDraft({
+                  title: describe(compiled.config),
+                  timerConfig: compiled.config,
+                  resultType: isForTime
+                    ? 'time'
+                    : compiled.config.mode === 'amrap'
+                      ? 'rounds_reps'
+                      : 'none',
+                  timeMs: isForTime ? (view.finishedWorkMs ?? undefined) : undefined,
+                })
+                dismiss()
+                void navigate('/log/new')
+              }}
+              className="h-16 flex-1 rounded-2xl bg-work font-display text-2xl tracking-wider text-surface"
+            >
+              {t('log.logIt')}
+            </button>
+          </div>
         ) : (
           <div className="flex gap-3">
             <button
