@@ -1,10 +1,17 @@
 import { create } from 'zustand'
 import { db } from '@/lib/db/db'
-import { cancelScheduledCues, unlockAudio } from './audio/audioEngine'
-import { compile } from './engine/compile'
-import { computeView } from './engine/runtime'
+import { useSettingsStore } from '@/features/settings/settingsStore'
+import {
+  audioNow,
+  cancelScheduledCues,
+  scheduleCue,
+  unlockAudio,
+} from './audio/audioEngine'
+import { compile, DEFAULT_PREP_MS } from './engine/compile'
+import { computeView, lapOffsets } from './engine/runtime'
 import type {
   CompiledTimer,
+  CueSound,
   TimerConfig,
   TimerEvent,
   TimerView,
@@ -18,6 +25,8 @@ interface TimerState {
   start: (config: TimerConfig) => void
   pause: () => void
   resume: () => void
+  /** DONE tap: close the current open work segment (ratioInterval). */
+  lap: () => void
   /** Manual finish (For Time) — captures the result. */
   finish: () => void
   /** Close the run screen and drop the session. */
@@ -35,6 +44,21 @@ function persist(config: TimerConfig, events: TimerEvent[]): void {
     events,
     startedAt: events[0]?.at ?? Date.now(),
   })
+}
+
+/**
+ * Immediate cue for the lap tap itself. Compiled cues at-or-before the
+ * current elapsed time are never replayed by the runner, so the sound for
+ * a boundary created *by* the tap has to be played imperatively.
+ */
+function tapFeedback(sound: CueSound, vibrate: number[]): void {
+  if (useSettingsStore.getState().soundEnabled) {
+    const now = audioNow()
+    if (now !== null) scheduleCue(sound, now)
+  }
+  if ('vibrate' in navigator && useSettingsStore.getState().vibrateEnabled) {
+    navigator.vibrate(vibrate)
+  }
 }
 
 // Refresh at 10 Hz granularity: only publish a new view when something the
@@ -75,6 +99,29 @@ export const useTimerStore = create<TimerState>((set, get) => ({
     set({ events: next, view: computeView(compiled, next, Date.now()) })
   },
 
+  lap: () => {
+    const { compiled, events, view } = get()
+    if (!compiled || !view) return
+    if (view.phase !== 'running' || view.segment?.open !== true) return
+    if (view.segmentElapsedMs < 1000) return // double-tap guard
+    const config = compiled.config
+    const next: TimerEvent[] = [...events, { type: 'lap', at: Date.now() }]
+    const laps = lapOffsets(next)
+    const recompiled = compile(config, DEFAULT_PREP_MS, laps)
+    persist(config, next)
+    const closedFinal =
+      config.mode === 'ratioInterval' && laps.length >= config.rounds
+    tapFeedback(
+      closedFinal ? 'finish' : 'transition',
+      closedFinal ? [600, 150, 600] : [100, 80, 100],
+    )
+    set({
+      compiled: recompiled,
+      events: next,
+      view: computeView(recompiled, next, Date.now()),
+    })
+  },
+
   finish: () => {
     const { compiled, events, view } = get()
     if (!compiled || !view || view.phase === 'done' || view.phase === 'idle') return
@@ -104,7 +151,7 @@ export const useTimerStore = create<TimerState>((set, get) => ({
     if (get().compiled) return
     const row = await db.activeSession.get('current')
     if (!row) return
-    const compiled = compile(row.config)
+    const compiled = compile(row.config, DEFAULT_PREP_MS, lapOffsets(row.events))
     const view = computeView(compiled, row.events, Date.now())
     if (view.phase === 'done' || view.phase === 'idle') {
       // Stale or meaningless — a workout that ended while the app was closed.
