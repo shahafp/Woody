@@ -125,6 +125,35 @@ describe('computeView', () => {
   })
 })
 
+describe('computeView on ratioInterval timelines', () => {
+  const cfg = { mode: 'ratioInterval', ratio: 1, rounds: 2 } as const
+
+  it('open work is running and elapses upward', () => {
+    const t = compile(cfg, 10_000, [])
+    const v = computeView(t, ev(['start', 0]), T0 + 40_000)
+    expect(v.phase).toBe('running')
+    expect(v.segment?.open).toBe(true)
+    expect(v.segmentElapsedMs).toBe(30_000)
+    expect(v.round).toBe(1)
+  })
+
+  it('after a lap the athlete rests with the matched countdown', () => {
+    const t = compile(cfg, 10_000, [70_000]) // work1 = 60s → rest1 = 60s
+    const events = ev(['start', 0], ['lap', 70_000])
+    const v = computeView(t, events, T0 + 100_000)
+    expect(v.segment?.kind).toBe('rest')
+    expect(v.segmentRemainingMs).toBe(30_000)
+  })
+
+  it('done immediately after the final lap; result excludes prep', () => {
+    const t = compile(cfg, 10_000, [70_000, 200_000])
+    const events = ev(['start', 0], ['lap', 70_000], ['lap', 200_000])
+    const v = computeView(t, events, T0 + 200_000)
+    expect(v.phase).toBe('done')
+    expect(v.finishedWorkMs).toBe(190_000)
+  })
+})
+
 describe('cuesInWindow', () => {
   it('is exclusive at from, inclusive at to', () => {
     // amrap prep ticks at 7000/8000/9000, go at 10000
