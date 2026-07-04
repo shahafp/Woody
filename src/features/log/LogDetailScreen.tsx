@@ -1,5 +1,5 @@
 import { useLiveQuery } from 'dexie-react-hooks'
-import { ArrowLeft, Trash2 } from 'lucide-react'
+import { ArrowLeft, Pencil, Trash2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import { db } from '@/lib/db/db'
@@ -47,9 +47,16 @@ export function LogDetailScreen() {
         >
           <ArrowLeft size={20} />
         </button>
-        <h1 className="min-w-0 truncate font-display text-2xl tracking-wide text-chalk">
+        <h1 className="min-w-0 flex-1 truncate font-display text-2xl tracking-wide text-chalk">
           {(log.title || 'Workout').toUpperCase()}
         </h1>
+        <Link
+          to={`/log/${id}/edit`}
+          aria-label={t('log.edit')}
+          className="flex h-10 shrink-0 items-center gap-1.5 rounded-full bg-raised px-4 text-sm font-semibold text-chalk active:bg-edge"
+        >
+          <Pencil size={15} /> {t('log.edit')}
+        </Link>
       </div>
 
       <div className="mt-2 text-sm text-chalk-dim">

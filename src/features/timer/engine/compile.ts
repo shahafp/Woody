@@ -93,6 +93,38 @@ export function compile(
         })
       }
       break
+    case 'composite':
+      // Blocks run back-to-back; a rest *between* blocks is its own rest block.
+      for (const block of config.blocks) {
+        switch (block.type) {
+          case 'work':
+            push('work', block.label ?? 'Work', block.durationMs, 1, 1)
+            break
+          case 'rest':
+            push('rest', block.label ?? 'Rest', block.durationMs, 1, 1)
+            break
+          case 'amrap':
+            push('work', block.label ?? 'AMRAP', block.durationMs, 1, 1)
+            break
+          case 'emom':
+            for (let r = 1; r <= block.rounds; r++) {
+              const base = block.label ?? 'EMOM'
+              push('work', `${base} ${r}/${block.rounds}`, block.intervalMs, r, block.rounds)
+            }
+            break
+          case 'interval':
+            for (let r = 1; r <= block.rounds; r++) {
+              const base = block.label ?? 'Work'
+              push('work', `${base} ${r}/${block.rounds}`, block.workMs, r, block.rounds)
+              // No trailing rest: the block ends on its last work segment.
+              if (r < block.rounds) {
+                push('rest', `Rest ${r}/${block.rounds}`, block.restMs, r, block.rounds)
+              }
+            }
+            break
+        }
+      }
+      break
   }
 
   return {

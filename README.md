@@ -10,17 +10,25 @@ devices with last-write-wins merging.
 
 ## Features
 
-- **Timers** — For Time (cap), AMRAP, EMOM, Intervals, fully custom work/rest
-  sequences. One engine: every mode compiles to a segment list with 3-2-1
-  beeps, sample-accurate Web Audio cues, wake lock, vibration, and a visual
-  flash for iOS silent mode. Drift-free: state derives from wall-clock event
-  logs, so backgrounding, phone calls, and even page reloads can't lose a
-  workout ("Resume" is automatic).
+- **Timers** — For Time (cap), AMRAP, EMOM, Intervals, 1:1, and a **Custom
+  chipper**: chain heterogeneous, named blocks (Work/Rest/AMRAP/EMOM/Interval)
+  into one workout that runs end to end, with one-tap starter templates. One
+  engine: every mode compiles to a segment list with 3-2-1 beeps,
+  sample-accurate Web Audio cues, wake lock, vibration, and a visual flash for
+  iOS silent mode. Drift-free: state derives from wall-clock event logs, so
+  backgrounding, phone calls, and even page reloads can't lose a workout
+  ("Resume" is automatic).
 - **Today's weights** — enter `5×3 Back Squat @ 75%` once; loads are computed
   from your stored 1RMs and rounded to what you can actually put on a bar.
+  Blocks aren't just straight sets: build **waves** (per-set percentages, with
+  a generator), **supersets** (A1/A2 lifts, each off its own 1RM),
+  **complexes** (name a movement sequence), and add **tempo + notes**.
 - **Lifts** — append-only 1RM history (PR progression for free), instant
   50–100% tables, custom percentages, kg/lbs with plate-aware rounding.
-- **Log** — month-grouped history; finished timers prefill the entry.
+- **Log** — month-grouped history. Every finished timer auto-saves (a rolling
+  last-15 safety net, tagged `auto`); tap **Add details** to enrich one into a
+  permanent entry. Any entry is fully editable.
+- **Today's weights** — a one-tap **Reset day** clears the whole sheet.
 
 ## Development
 

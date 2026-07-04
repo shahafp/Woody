@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { db } from '@/lib/db/db'
+import { addAutoLog } from '@/features/log/logRepo'
 import { useSettingsStore } from '@/features/settings/settingsStore'
 import {
   audioNow,
@@ -8,6 +9,7 @@ import {
   unlockAudio,
 } from './audio/audioEngine'
 import { compile, DEFAULT_PREP_MS } from './engine/compile'
+import { describe } from './engine/presets'
 import { computeView, lapOffsets } from './engine/runtime'
 import type {
   CompiledTimer,
@@ -21,6 +23,8 @@ interface TimerState {
   compiled: CompiledTimer | null
   events: TimerEvent[]
   view: TimerView | null
+  /** Id of the log entry auto-saved for the just-finished session, if any. */
+  lastAutoLogId: string | null
   /** Must be called from a user gesture — unlocks audio. */
   start: (config: TimerConfig) => void
   pause: () => void
@@ -66,10 +70,45 @@ function tapFeedback(sound: CueSound, vibrate: number[]): void {
 // the tree 60 times a second.
 let lastViewKey = ''
 
+// The session (keyed by its start timestamp) already auto-saved to the log.
+// A session reaches 'done' via finish/lap/clock, so recording is guarded here
+// once rather than at each of those call sites.
+let recordedStartAt: number | null = null
+
+/**
+ * Auto-save a finished workout to the log exactly once so a stray CLOSE can't
+ * lose it. For Time captures its final time; other modes have no measured
+ * result and are logged as a timestamped placeholder to enrich later.
+ */
+function recordDone(
+  compiled: CompiledTimer,
+  events: TimerEvent[],
+  view: TimerView,
+  set: (partial: Partial<TimerState>) => void,
+): void {
+  if (view.phase !== 'done') return
+  const startAt = events[0]?.at
+  if (startAt === undefined || startAt === recordedStartAt) return
+  recordedStartAt = startAt
+  const config = compiled.config
+  const isForTime = config.mode === 'forTime'
+  void addAutoLog({
+    performedAt: new Date().toISOString().slice(0, 10),
+    title: describe(config),
+    description: '',
+    timerConfig: config,
+    resultType: isForTime ? 'time' : 'none',
+    result: isForTime ? { timeMs: view.finishedWorkMs ?? view.workElapsedMs } : {},
+    rx: true,
+    notes: null,
+  }).then((row) => set({ lastAutoLogId: row.id }))
+}
+
 export const useTimerStore = create<TimerState>((set, get) => ({
   compiled: null,
   events: [],
   view: null,
+  lastAutoLogId: null,
 
   start: (config) => {
     unlockAudio()
@@ -77,7 +116,8 @@ export const useTimerStore = create<TimerState>((set, get) => ({
     const events: TimerEvent[] = [{ type: 'start', at: Date.now() }]
     persist(config, events)
     lastViewKey = ''
-    set({ compiled, events, view: computeView(compiled, events, Date.now()) })
+    recordedStartAt = null
+    set({ compiled, events, view: computeView(compiled, events, Date.now()), lastAutoLogId: null })
   },
 
   pause: () => {
@@ -115,11 +155,9 @@ export const useTimerStore = create<TimerState>((set, get) => ({
       closedFinal ? 'finish' : 'transition',
       closedFinal ? [600, 150, 600] : [100, 80, 100],
     )
-    set({
-      compiled: recompiled,
-      events: next,
-      view: computeView(recompiled, next, Date.now()),
-    })
+    const nextView = computeView(recompiled, next, Date.now())
+    set({ compiled: recompiled, events: next, view: nextView })
+    recordDone(recompiled, next, nextView, set)
   },
 
   finish: () => {
@@ -127,14 +165,17 @@ export const useTimerStore = create<TimerState>((set, get) => ({
     if (!compiled || !view || view.phase === 'done' || view.phase === 'idle') return
     const next: TimerEvent[] = [...events, { type: 'finish', at: Date.now() }]
     persist(compiled.config, next)
-    set({ events: next, view: computeView(compiled, next, Date.now()) })
+    const nextView = computeView(compiled, next, Date.now())
+    set({ events: next, view: nextView })
+    recordDone(compiled, next, nextView, set)
   },
 
   dismiss: () => {
     cancelScheduledCues()
     void db.activeSession.delete('current')
     lastViewKey = ''
-    set({ compiled: null, events: [], view: null })
+    recordedStartAt = null
+    set({ compiled: null, events: [], view: null, lastAutoLogId: null })
   },
 
   refresh: () => {
@@ -145,6 +186,7 @@ export const useTimerStore = create<TimerState>((set, get) => ({
     if (key === lastViewKey) return
     lastViewKey = key
     set({ view })
+    recordDone(compiled, events, view, set)
   },
 
   restoreFromDb: async () => {

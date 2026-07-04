@@ -1,10 +1,39 @@
-export type TimerMode = 'forTime' | 'amrap' | 'emom' | 'interval' | 'ratioInterval' | 'custom'
+export type TimerMode =
+  | 'forTime'
+  | 'amrap'
+  | 'emom'
+  | 'interval'
+  | 'ratioInterval'
+  | 'custom'
+  | 'composite'
 
 export interface CustomStep {
   kind: 'work' | 'rest'
   durationMs: number
   label?: string
 }
+
+export type CompositeBlockType = 'work' | 'rest' | 'amrap' | 'emom' | 'interval'
+
+/**
+ * One segment of a chipper. Each block is a self-contained mini-workout; the
+ * chain runs them back-to-back. `label` names the movement and surfaces big on
+ * the run screen (e.g. "THRUSTERS"). Blocks carry an id so the builder can
+ * reorder them without React key churn; compilation ignores it.
+ */
+export type CompositeBlock =
+  | { id: string; type: 'work'; label?: string; durationMs: number }
+  | { id: string; type: 'rest'; label?: string; durationMs: number }
+  | { id: string; type: 'amrap'; label?: string; durationMs: number }
+  | { id: string; type: 'emom'; label?: string; intervalMs: number; rounds: number }
+  | {
+      id: string
+      type: 'interval'
+      label?: string
+      workMs: number
+      restMs: number
+      rounds: number
+    }
 
 export type TimerConfig =
   | { mode: 'forTime'; capMs: number }
@@ -14,6 +43,8 @@ export type TimerConfig =
   /** Open-clock work ended by a lap tap; rest = work × ratio (ratio = rest ÷ work). */
   | { mode: 'ratioInterval'; ratio: number; rounds: number }
   | { mode: 'custom'; rounds: number; steps: CustomStep[] }
+  /** Chipper: a chain of heterogeneous blocks run end-to-end. */
+  | { mode: 'composite'; blocks: CompositeBlock[] }
 
 export type CueSound = 'tick' | 'go' | 'transition' | 'finish'
 

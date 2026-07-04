@@ -89,6 +89,11 @@ export function LogListScreen() {
                     </div>
                     <div className="mt-0.5 text-xs text-chalk-dim">
                       {log.performedAt}
+                      {log.source === 'timer' && (
+                        <span className="ml-2 rounded bg-edge px-1.5 py-0.5 font-semibold uppercase tracking-wide text-chalk-dim">
+                          {t('log.auto')}
+                        </span>
+                      )}
                       {log.rx && (
                         <span className="ml-2 rounded bg-work/15 px-1.5 py-0.5 font-bold text-work">
                           {t('log.rx')}

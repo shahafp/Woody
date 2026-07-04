@@ -48,6 +48,7 @@ export default function App() {
           <Route path="/wod" element={<WodSheetScreen />} />
           <Route path="/log" element={<LogListScreen />} />
           <Route path="/log/new" element={<LogEntryFormScreen />} />
+          <Route path="/log/:id/edit" element={<LogEntryFormScreen />} />
           <Route path="/log/:id" element={<LogDetailScreen />} />
           <Route path="/lifts" element={<LiftsScreen />} />
           <Route path="/lifts/:id" element={<LiftDetailScreen />} />

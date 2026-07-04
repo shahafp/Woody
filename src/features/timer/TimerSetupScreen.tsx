@@ -4,15 +4,28 @@ import { useState } from 'react'
 import { InstallHint } from '@/app/InstallHint'
 import { db } from '@/lib/db/db'
 import { formatClock } from '@/lib/format'
+import { newId } from '@/lib/ids'
+import { CompositeBuilder } from './components/CompositeBuilder'
 import { ChipRow, CompactStepper } from './components/CompactStepper'
 import { MinutePicker } from './components/MinutePicker'
 import { compile } from './engine/compile'
-import { amrap, describe, forTime, interval, MODE_LABELS, ratioInterval, ratioLabel } from './engine/presets'
-import type { CustomStep, TimerConfig, TimerMode } from './engine/types'
+import {
+  amrap,
+  type CompositeBlockSpec,
+  defaultBlock,
+  describe,
+  forTime,
+  interval,
+  MODE_LABELS,
+  ratioInterval,
+  ratioLabel,
+  stampBlocks,
+} from './engine/presets'
+import type { CompositeBlock, TimerConfig, TimerMode } from './engine/types'
 import { deletePreset, savePreset } from './presetsRepo'
 import { useTimerStore } from './timerStore'
 
-const MODES: TimerMode[] = ['forTime', 'amrap', 'emom', 'interval', 'ratioInterval', 'custom']
+const MODES: TimerMode[] = ['forTime', 'amrap', 'emom', 'interval', 'ratioInterval', 'composite']
 
 const MODE_HINTS: Record<TimerMode, string> = {
   forTime: 'Count-up clock with a time cap. Hit Finish to record your time.',
@@ -21,6 +34,25 @@ const MODE_HINTS: Record<TimerMode, string> = {
   interval: 'Fixed work and rest, repeated for rounds.',
   ratioInterval: 'Work until you tap Round Done — rest matches your work time at the ratio you pick.',
   custom: 'Your own sequence of work and rest steps, repeated for rounds.',
+  composite: 'Chain blocks — EMOM, AMRAP, intervals, work, rest — into one workout that runs end to end.',
+}
+
+/** Faithfully expand a legacy custom preset into chipper blocks (same timeline). */
+function customToBlocks(config: Extract<TimerConfig, { mode: 'custom' }>): CompositeBlock[] {
+  const specs: CompositeBlockSpec[] = []
+  for (let r = 1; r <= config.rounds; r++) {
+    config.steps.forEach((step, i) => {
+      const isTrailingRest =
+        step.kind === 'rest' && r === config.rounds && i === config.steps.length - 1
+      if (isTrailingRest) return
+      specs.push(
+        step.kind === 'work'
+          ? { type: 'work', durationMs: step.durationMs, label: step.label }
+          : { type: 'rest', durationMs: step.durationMs },
+      )
+    })
+  }
+  return stampBlocks(specs, newId)
 }
 
 const SEC = 1000
@@ -48,11 +80,9 @@ export function TimerSetupScreen() {
   const [intRounds, setIntRounds] = useState(5)
   const [ratioX, setRatioX] = useState(1)
   const [ratioRounds, setRatioRounds] = useState(6)
-  const [customSteps, setCustomSteps] = useState<CustomStep[]>([
-    { kind: 'work', durationMs: 60 * SEC },
-    { kind: 'rest', durationMs: 30 * SEC },
-  ])
-  const [customRounds, setCustomRounds] = useState(3)
+  const [compositeBlocks, setCompositeBlocks] = useState<CompositeBlock[]>(() =>
+    stampBlocks([defaultBlock('interval')], newId),
+  )
   const [savingName, setSavingName] = useState<string | null>(null)
 
   const config: TimerConfig =
@@ -66,11 +96,17 @@ export function TimerSetupScreen() {
             ? interval(intRounds, intWorkSec, intRestSec)
             : mode === 'ratioInterval'
               ? ratioInterval(ratioRounds, ratioX)
-              : { mode: 'custom', rounds: customRounds, steps: customSteps }
+              : { mode: 'composite', blocks: compositeBlocks }
 
   const workoutMs = compile(config, 0).totalMs
 
   const loadConfig = (c: TimerConfig) => {
+    // Legacy custom presets open in the chipper builder (identical timeline).
+    if (c.mode === 'custom') {
+      setMode('composite')
+      setCompositeBlocks(customToBlocks(c))
+      return
+    }
     setMode(c.mode)
     switch (c.mode) {
       case 'forTime':
@@ -92,15 +128,11 @@ export function TimerSetupScreen() {
         setRatioX(c.ratio)
         setRatioRounds(c.rounds)
         break
-      case 'custom':
-        setCustomSteps(c.steps)
-        setCustomRounds(c.rounds)
+      case 'composite':
+        setCompositeBlocks(c.blocks)
         break
     }
   }
-
-  const updateStep = (i: number, step: CustomStep) =>
-    setCustomSteps((steps) => steps.map((s, j) => (j === i ? step : s)))
 
   return (
     <div className="flex min-h-full flex-col">
@@ -260,97 +292,13 @@ export function TimerSetupScreen() {
           </div>
         )}
 
-        {mode === 'custom' && (
-          <div className="flex flex-col gap-3">
-            {customSteps.map((step, i) => (
-              <div key={i} className="flex items-center gap-3 rounded-xl bg-raised p-3">
-                <button
-                  type="button"
-                  onClick={() =>
-                    updateStep(i, { ...step, kind: step.kind === 'work' ? 'rest' : 'work' })
-                  }
-                  className={`w-16 rounded-lg py-2 text-sm font-bold uppercase ${
-                    step.kind === 'work' ? 'bg-work text-surface' : 'bg-rest text-surface'
-                  }`}
-                >
-                  {step.kind}
-                </button>
-                <div className="flex flex-1 items-center justify-center gap-3">
-                  <button
-                    type="button"
-                    aria-label="Shorter step"
-                    onClick={() =>
-                      updateStep(i, {
-                        ...step,
-                        durationMs: clampSec(step.durationMs / SEC - 5) * SEC,
-                      })
-                    }
-                    className="flex h-10 w-10 items-center justify-center rounded-full bg-edge text-chalk"
-                  >
-                    −
-                  </button>
-                  <span className="w-16 text-center font-display text-2xl text-chalk">
-                    {formatClock(step.durationMs)}
-                  </span>
-                  <button
-                    type="button"
-                    aria-label="Longer step"
-                    onClick={() =>
-                      updateStep(i, {
-                        ...step,
-                        durationMs: clampSec(step.durationMs / SEC + 5) * SEC,
-                      })
-                    }
-                    className="flex h-10 w-10 items-center justify-center rounded-full bg-edge text-chalk"
-                  >
-                    +
-                  </button>
-                </div>
-                <button
-                  type="button"
-                  aria-label="Remove step"
-                  disabled={customSteps.length === 1}
-                  onClick={() => setCustomSteps((s) => s.filter((_, j) => j !== i))}
-                  className="text-chalk-dim disabled:opacity-30"
-                >
-                  <X size={18} />
-                </button>
-              </div>
-            ))}
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() =>
-                  setCustomSteps((s) => [...s, { kind: 'work', durationMs: 60 * SEC }])
-                }
-                className="flex-1 rounded-xl border border-edge py-2.5 text-sm font-semibold text-chalk-dim active:bg-raised"
-              >
-                + Work
-              </button>
-              <button
-                type="button"
-                onClick={() =>
-                  setCustomSteps((s) => [...s, { kind: 'rest', durationMs: 30 * SEC }])
-                }
-                className="flex-1 rounded-xl border border-edge py-2.5 text-sm font-semibold text-chalk-dim active:bg-raised"
-              >
-                + Rest
-              </button>
-            </div>
-            <div className="mt-2">
-              <CompactStepper
-                label="Rounds"
-                display={`${customRounds}`}
-                onDecrement={() => setCustomRounds((v) => clampRounds(v - 1))}
-                onIncrement={() => setCustomRounds((v) => clampRounds(v + 1))}
-              />
-            </div>
-          </div>
+        {mode === 'composite' && (
+          <CompositeBuilder blocks={compositeBlocks} onChange={setCompositeBlocks} />
         )}
       </div>
 
-      <div className="mb-3 flex items-center justify-between text-sm text-chalk-dim">
-        <span>
+      <div className="mb-3 flex items-center justify-between gap-3 text-sm text-chalk-dim">
+        <span className="min-w-0 truncate">
           {describe(config)}
           {mode !== 'ratioInterval' && ` · total ${formatClock(workoutMs)}`}
         </span>
@@ -358,7 +306,7 @@ export function TimerSetupScreen() {
           <button
             type="button"
             onClick={() => setSavingName(describe(config))}
-            className="flex items-center gap-1.5 font-semibold text-chalk"
+            className="flex shrink-0 items-center gap-1.5 font-semibold text-chalk"
           >
             <Bookmark size={16} /> Save
           </button>
@@ -397,8 +345,9 @@ export function TimerSetupScreen() {
 
       <button
         type="button"
+        disabled={mode === 'composite' && compositeBlocks.length === 0}
         onClick={() => start(config)}
-        className="h-16 w-full rounded-2xl bg-work font-display text-2xl tracking-wider text-surface active:opacity-90"
+        className="h-16 w-full rounded-2xl bg-work font-display text-2xl tracking-wider text-surface active:opacity-90 disabled:opacity-40"
       >
         START
       </button>

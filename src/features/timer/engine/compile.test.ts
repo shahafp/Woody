@@ -89,6 +89,73 @@ describe('compile', () => {
   })
 })
 
+describe('compile composite', () => {
+  it('chains heterogeneous blocks back-to-back with a continuous clock', () => {
+    const t = compile(
+      {
+        mode: 'composite',
+        blocks: [
+          { id: 'a', type: 'emom', label: 'Buy-in', intervalMs: MIN, rounds: 2 },
+          { id: 'b', type: 'rest', durationMs: 30 * SEC },
+          { id: 'c', type: 'amrap', label: 'Cindy', durationMs: 5 * MIN },
+        ],
+      },
+      0,
+    )
+    expect(t.segments.map((s) => s.kind)).toEqual(['work', 'work', 'rest', 'work'])
+    // continuous cursor: emom 2×60 = 120, +30 rest = 150, +300 amrap = 450
+    expect(t.segments[1]).toMatchObject({ label: 'Buy-in 2/2', startMs: MIN })
+    expect(t.segments[3]).toMatchObject({ label: 'Cindy', startMs: 150 * SEC })
+    expect(t.totalMs).toBe(2 * MIN + 30 * SEC + 5 * MIN)
+    expect(t.display).toBe('down')
+  })
+
+  it('interval block drops its own trailing rest but abuts the next block', () => {
+    const t = compile(
+      {
+        mode: 'composite',
+        blocks: [
+          { id: 'a', type: 'interval', label: 'Fast', workMs: 40 * SEC, restMs: 20 * SEC, rounds: 2 },
+          { id: 'b', type: 'work', label: 'Finisher', durationMs: 60 * SEC },
+        ],
+      },
+      0,
+    )
+    // work, rest, work (no trailing rest), then the next block's work
+    expect(t.segments.map((s) => s.kind)).toEqual(['work', 'rest', 'work', 'work'])
+    expect(t.segments[2]).toMatchObject({ label: 'Fast 2/2' })
+    expect(t.segments[3]).toMatchObject({ label: 'Finisher', startMs: 100 * SEC })
+  })
+
+  it('carries per-block rounds so the run screen shows ROUND x/y inside a block', () => {
+    const t = compile(
+      {
+        mode: 'composite',
+        blocks: [{ id: 'a', type: 'emom', intervalMs: MIN, rounds: 3 }],
+      },
+      0,
+    )
+    expect(t.segments[0]).toMatchObject({ round: 1, totalRounds: 3, label: 'EMOM 1/3' })
+    expect(t.segments[2]).toMatchObject({ round: 3, totalRounds: 3 })
+  })
+
+  it('emits go/transition/finish cues generically across blocks', () => {
+    const t = compile(
+      {
+        mode: 'composite',
+        blocks: [
+          { id: 'a', type: 'work', durationMs: 30 * SEC },
+          { id: 'b', type: 'rest', durationMs: 20 * SEC },
+        ],
+      },
+      0,
+    )
+    expect(t.cues.filter((c) => c.sound === 'go').map((c) => c.atMs)).toEqual([0])
+    expect(t.cues.filter((c) => c.sound === 'transition').map((c) => c.atMs)).toEqual([30 * SEC])
+    expect(t.cues.filter((c) => c.sound === 'finish').map((c) => c.atMs)).toEqual([50 * SEC])
+  })
+})
+
 describe('compile ratioInterval', () => {
   it('no laps: prep + one open work segment at the safety cap', () => {
     const t = compile({ mode: 'ratioInterval', ratio: 1, rounds: 6 })

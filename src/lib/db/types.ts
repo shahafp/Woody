@@ -42,12 +42,40 @@ export interface SettingsRow extends Row {
   locale: 'en'
 }
 
+/** One prescribed set: reps at a percentage of the movement's 1RM. */
+export interface WodSheetSet {
+  reps: number
+  percent: number
+}
+
+/**
+ * A lift performed for a list of sets. Varied per-set percents = a wave.
+ * `label` overrides the display name for a complex (e.g. "Clean + FS + Jerk"),
+ * where the percent is still computed off `liftId`'s 1RM.
+ */
+export interface WodSheetMovement {
+  id: string
+  liftId: string
+  label?: string
+  sets: WodSheetSet[]
+}
+
 export interface WodSheetBlock {
   id: string
+  /** Legacy uniform fields — the source of truth when `movements` is absent, and
+   * kept mirrored to the primary movement so pre-movements clients still render. */
   liftId: string
   sets: number
   reps: number
   percent: number
+  /** Block/superset heading, e.g. "A". */
+  label?: string
+  /** The real content when present: one movement = straight/wave, many = superset. */
+  movements?: WodSheetMovement[]
+  /** Tempo prescription, e.g. "31X1". */
+  tempo?: string
+  /** Short coaching cue. */
+  note?: string
 }
 
 /** One day's strength work — blocks are edited and synced as a unit (JSONB). */
@@ -71,4 +99,10 @@ export interface WorkoutLogRow extends Row {
   result: { timeMs?: number; rounds?: number; reps?: number; loadKg?: number }
   rx: boolean
   notes: string | null
+  /**
+   * How the entry was created. 'timer' entries are auto-saved when a timer
+   * finishes and pruned to a recent cap; absent/'manual' are deliberate.
+   * Local-only — not sent to the sync DTO, so it needs no server column.
+   */
+  source?: 'manual' | 'timer'
 }

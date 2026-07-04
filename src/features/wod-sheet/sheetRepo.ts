@@ -51,6 +51,20 @@ export async function addBlock(
   })
 }
 
+export async function updateBlock(
+  sheetId: string,
+  blockId: string,
+  fields: Omit<WodSheetBlock, 'id'>,
+): Promise<void> {
+  const sheet = await db.wodSheets.get(sheetId)
+  if (!sheet) return
+  await db.wodSheets.update(sheetId, {
+    blocks: sheet.blocks.map((b) => (b.id === blockId ? { ...fields, id: blockId } : b)),
+    updatedAt: stamp(),
+    dirty: 1,
+  })
+}
+
 export async function removeBlock(sheetId: string, blockId: string): Promise<void> {
   const sheet = await db.wodSheets.get(sheetId)
   if (!sheet) return
@@ -59,4 +73,9 @@ export async function removeBlock(sheetId: string, blockId: string): Promise<voi
     updatedAt: stamp(),
     dirty: 1,
   })
+}
+
+/** Wipe every block for the day in one go (keeps the row so the clear syncs). */
+export async function clearSheet(sheetId: string): Promise<void> {
+  await db.wodSheets.update(sheetId, { blocks: [], updatedAt: stamp(), dirty: 1 })
 }
