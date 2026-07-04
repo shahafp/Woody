@@ -1,4 +1,4 @@
-export type TimerMode = 'forTime' | 'amrap' | 'emom' | 'interval' | 'custom'
+export type TimerMode = 'forTime' | 'amrap' | 'emom' | 'interval' | 'ratioInterval' | 'custom'
 
 export interface CustomStep {
   kind: 'work' | 'rest'
@@ -11,6 +11,8 @@ export type TimerConfig =
   | { mode: 'amrap'; durationMs: number }
   | { mode: 'emom'; intervalMs: number; rounds: number }
   | { mode: 'interval'; workMs: number; restMs: number; rounds: number }
+  /** Open-clock work ended by a lap tap; rest = work × ratio (ratio = rest ÷ work). */
+  | { mode: 'ratioInterval'; ratio: number; rounds: number }
   | { mode: 'custom'; rounds: number; steps: CustomStep[] }
 
 export type CueSound = 'tick' | 'go' | 'transition' | 'finish'
@@ -32,6 +34,8 @@ export interface Segment {
   /** 1-based; 0 for prep. */
   round: number
   totalRounds: number
+  /** Work segment whose end isn't known yet — awaiting a lap. */
+  open?: boolean
 }
 
 export interface CompiledTimer {
@@ -48,6 +52,8 @@ export type TimerEvent =
   | { type: 'start'; at: number }
   | { type: 'pause'; at: number }
   | { type: 'resume'; at: number }
+  /** DONE tap closing the current open work segment (ratioInterval). */
+  | { type: 'lap'; at: number }
   | { type: 'finish'; at: number }
 
 export type TimerPhase = 'idle' | 'prep' | 'running' | 'paused' | 'done'

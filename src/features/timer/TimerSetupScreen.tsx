@@ -19,6 +19,7 @@ const MODE_HINTS: Record<TimerMode, string> = {
   amrap: 'As many rounds as possible before the clock runs out.',
   emom: 'New round every interval, on the minute.',
   interval: 'Fixed work and rest, repeated for rounds.',
+  ratioInterval: 'Work until you tap Round Done — rest matches your work time at the ratio you pick.',
   custom: 'Your own sequence of work and rest steps, repeated for rounds.',
 }
 
