@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { compile, OPEN_CAP_MS } from './compile'
+import { compile, OPEN_CAP_MS, startsWithRest } from './compile'
+import type { CompositeGroupBlock, TimerConfig } from './types'
 
 const MIN = 60_000
 const SEC = 1_000
@@ -153,6 +154,130 @@ describe('compile composite', () => {
     expect(t.cues.filter((c) => c.sound === 'go').map((c) => c.atMs)).toEqual([0])
     expect(t.cues.filter((c) => c.sound === 'transition').map((c) => c.atMs)).toEqual([30 * SEC])
     expect(t.cues.filter((c) => c.sound === 'finish').map((c) => c.atMs)).toEqual([50 * SEC])
+  })
+})
+
+describe('compile composite set blocks', () => {
+  const group: CompositeGroupBlock = {
+    id: 'g',
+    type: 'group',
+    label: 'A',
+    sets: 3,
+    restBetweenSetsMs: 90 * SEC,
+    children: [
+      { id: 'c1', type: 'work', label: 'A1', durationMs: 45 * SEC },
+      { id: 'c2', type: 'rest', durationMs: 15 * SEC },
+    ],
+  }
+
+  it('replays its children once per set with rest between, none after the last', () => {
+    const t = compile({ mode: 'composite', blocks: [group] }, 0)
+    expect(t.segments.map((s) => s.kind)).toEqual([
+      'work', 'rest', 'rest', // set 1 + between-sets rest
+      'work', 'rest', 'rest', // set 2 + between-sets rest
+      'work', 'rest', // set 3 — no trailing between-sets rest
+    ])
+    expect(t.totalMs).toBe(3 * 60 * SEC + 2 * 90 * SEC)
+  })
+
+  it('stamps every segment with the set it belongs to', () => {
+    const t = compile({ mode: 'composite', blocks: [group] }, 0)
+    expect(t.segments[0]).toMatchObject({
+      label: 'A1',
+      group: { label: 'A', set: 1, sets: 3 },
+    })
+    expect(t.segments[6].group).toEqual({ label: 'A', set: 3, sets: 3 })
+  })
+
+  it('keeps a nested interval block’s own rounds inside the set', () => {
+    const t = compile(
+      {
+        mode: 'composite',
+        blocks: [
+          {
+            id: 'g',
+            type: 'group',
+            sets: 2,
+            restBetweenSetsMs: 0,
+            children: [
+              { id: 'c', type: 'interval', workMs: 40 * SEC, restMs: 20 * SEC, rounds: 2 },
+            ],
+          },
+        ],
+      },
+      0,
+    )
+    // per set: work, rest, work (an interval block drops its trailing rest)
+    expect(t.segments.map((s) => s.kind)).toEqual(['work', 'rest', 'work', 'work', 'rest', 'work'])
+    expect(t.segments[0]).toMatchObject({ round: 1, totalRounds: 2, group: { set: 1, sets: 2 } })
+    expect(t.segments[3]).toMatchObject({ round: 1, totalRounds: 2, group: { set: 2, sets: 2 } })
+    expect(t.totalMs).toBe(2 * (2 * 40 * SEC + 20 * SEC))
+  })
+
+  it('omits the between-sets rest when it is set to none', () => {
+    const t = compile(
+      { mode: 'composite', blocks: [{ ...group, restBetweenSetsMs: 0 }] },
+      0,
+    )
+    expect(t.segments.map((s) => s.kind)).toEqual([
+      'work', 'rest', 'work', 'rest', 'work', 'rest',
+    ])
+  })
+})
+
+describe('prep countdown', () => {
+  it('is skipped when the workout opens on a rest block', () => {
+    const config: TimerConfig = {
+      mode: 'composite',
+      blocks: [
+        { id: 'a', type: 'rest', durationMs: 30 * SEC },
+        { id: 'b', type: 'work', durationMs: 60 * SEC },
+      ],
+    }
+    expect(startsWithRest(config)).toBe(true)
+    const t = compile(config)
+    expect(t.segments[0]).toMatchObject({ kind: 'rest', startMs: 0, durationMs: 30 * SEC })
+    expect(t.totalMs).toBe(90 * SEC)
+  })
+
+  it('is skipped when the first set block opens on a rest', () => {
+    const config: TimerConfig = {
+      mode: 'composite',
+      blocks: [
+        {
+          id: 'g',
+          type: 'group',
+          sets: 2,
+          restBetweenSetsMs: 0,
+          children: [
+            { id: 'c1', type: 'rest', durationMs: 20 * SEC },
+            { id: 'c2', type: 'work', durationMs: 40 * SEC },
+          ],
+        },
+      ],
+    }
+    expect(compile(config).segments[0]).toMatchObject({ kind: 'rest', startMs: 0 })
+  })
+
+  it('is skipped for a custom sequence that opens on a rest', () => {
+    const t = compile({
+      mode: 'custom',
+      rounds: 2,
+      steps: [
+        { kind: 'rest', durationMs: 20 * SEC },
+        { kind: 'work', durationMs: 40 * SEC },
+      ],
+    })
+    expect(t.segments[0]).toMatchObject({ kind: 'rest', startMs: 0 })
+  })
+
+  it('still runs before a workout that opens on work', () => {
+    const config: TimerConfig = {
+      mode: 'composite',
+      blocks: [{ id: 'a', type: 'work', durationMs: 60 * SEC }],
+    }
+    expect(startsWithRest(config)).toBe(false)
+    expect(compile(config).segments[0]).toMatchObject({ kind: 'prep', durationMs: 10_000 })
   })
 })
 

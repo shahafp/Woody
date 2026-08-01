@@ -4,7 +4,9 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import { db } from '@/lib/db/db'
 import { t } from '@/lib/i18n/t'
+import { formatClock } from '@/lib/format'
 import { useSettingsStore } from '@/features/settings/settingsStore'
+import { SplitsSummary, SplitsTable } from '@/features/timer/components/SplitsView'
 import { describe } from '@/features/timer/engine/presets'
 import { deleteLog } from './logRepo'
 import { resultLabel } from './LogListScreen'
@@ -35,6 +37,7 @@ export function LogDetailScreen() {
   }
 
   const result = resultLabel(log, unit)
+  const { elapsedMs, splits = [], completed } = log.result
 
   return (
     <div className="flex min-h-full flex-col">
@@ -68,6 +71,11 @@ export function LogDetailScreen() {
         >
           {log.rx ? t('log.rx') : t('log.scaled')}
         </span>
+        {completed === false && (
+          <span className="ml-2 rounded bg-edge px-1.5 py-0.5 font-semibold text-alarm">
+            {t('log.endedEarly')}
+          </span>
+        )}
       </div>
 
       {result && (
@@ -79,8 +87,39 @@ export function LogDetailScreen() {
         </div>
       )}
 
+      {elapsedMs !== undefined && !result && (
+        <div className="mt-6">
+          <span className="text-sm font-semibold uppercase tracking-[0.15em] text-chalk-dim">
+            {t('log.clockTime')}
+          </span>
+          <div className="font-display text-6xl text-work">{formatClock(elapsedMs)}</div>
+        </div>
+      )}
+
       {log.timerConfig && (
-        <p className="mt-4 text-sm text-chalk-dim">{describe(log.timerConfig)}</p>
+        <section className="mt-4">
+          <h2 className="text-sm font-semibold uppercase tracking-[0.15em] text-chalk-dim">
+            {t('log.plan')}
+          </h2>
+          <p className="mt-1 text-sm text-chalk">{describe(log.timerConfig)}</p>
+          {elapsedMs !== undefined && result && (
+            <p className="mt-1 text-sm text-chalk-dim">
+              {t('log.clockTime')} {formatClock(elapsedMs)}
+            </p>
+          )}
+        </section>
+      )}
+
+      {splits.length > 0 && (
+        <section className="mt-6">
+          <h2 className="text-sm font-semibold uppercase tracking-[0.15em] text-chalk-dim">
+            {t('log.splits')}
+          </h2>
+          <div className="mt-2 flex flex-col gap-3 rounded-xl bg-raised p-3">
+            <SplitsSummary splits={splits} />
+            <SplitsTable splits={splits} />
+          </div>
+        </section>
       )}
 
       {log.description && (

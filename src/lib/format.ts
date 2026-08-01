@@ -33,3 +33,26 @@ export function parseClock(input: string): number | null {
   for (const n of nums) seconds = seconds * 60 + n
   return seconds * 1000
 }
+
+/**
+ * Live mask for a typed time field: digits fill the clock from the right and
+ * the colon appears on its own, the way a stopwatch takes input.
+ * "3" → 0:03, "320" → 3:20, "1230" → 12:30, "12345" → 1:23:45.
+ * Anything that isn't a digit is dropped, so a phone keypad is enough.
+ */
+export function maskClock(input: string): string {
+  const digits = input.replace(/\D/g, '').slice(-6)
+  if (digits === '') return ''
+  const padded = digits.padStart(3, '0')
+  const seconds = padded.slice(-2)
+  const rest = padded.slice(0, -2)
+  if (rest.length <= 2) return `${Number(rest)}:${seconds}`
+  return `${Number(rest.slice(0, -2))}:${rest.slice(-2)}:${seconds}`
+}
+
+/** Typed entry for a whole-number field (rounds, sets). */
+export function parseCount(input: string): number | null {
+  const text = input.trim()
+  if (!/^\d+$/.test(text)) return null
+  return Number(text)
+}

@@ -1,9 +1,30 @@
-import type { CompiledTimer, Cue, Segment, TimerConfig } from './types'
+import type {
+  CompiledTimer,
+  CompositeLeafBlock,
+  Cue,
+  Segment,
+  SegmentGroup,
+  TimerConfig,
+} from './types'
 
 export const DEFAULT_PREP_MS = 10_000
 
 /** Safety cap for an open work segment — ends an abandoned session eventually. */
 export const OPEN_CAP_MS = 4 * 60 * 60_000
+
+/**
+ * A workout that opens on rest gets no "get ready" countdown — the rest *is*
+ * the getting ready, and 10 dead seconds in front of it would quietly stretch
+ * the first break past what was programmed.
+ */
+export function startsWithRest(config: TimerConfig): boolean {
+  if (config.mode === 'custom') return config.steps[0]?.kind === 'rest'
+  if (config.mode !== 'composite') return false
+  const first = config.blocks[0]
+  if (!first) return false
+  if (first.type === 'group') return first.children[0]?.type === 'rest'
+  return first.type === 'rest'
+}
 
 /**
  * Compiles any timer config to a flat segment sequence with cues attached.
@@ -23,7 +44,7 @@ export function compile(
     durationMs: number,
     round: number,
     totalRounds: number,
-    open = false,
+    extra: { open?: boolean; group?: SegmentGroup } = {},
   ) => {
     segments.push({
       index: segments.length,
@@ -33,12 +54,50 @@ export function compile(
       durationMs,
       round,
       totalRounds,
-      ...(open ? { open: true } : {}),
+      ...(extra.open ? { open: true } : {}),
+      ...(extra.group ? { group: extra.group } : {}),
     })
     cursor += durationMs
   }
 
-  if (prepMs > 0) push('prep', 'Get ready', prepMs, 0, 0)
+  /** One chipper block, optionally stamped with the set pass it belongs to. */
+  const pushLeaf = (block: CompositeLeafBlock, group?: SegmentGroup) => {
+    switch (block.type) {
+      case 'work':
+        push('work', block.label ?? 'Work', block.durationMs, 1, 1, { group })
+        break
+      case 'rest':
+        push('rest', block.label ?? 'Rest', block.durationMs, 1, 1, { group })
+        break
+      case 'amrap':
+        push('work', block.label ?? 'AMRAP', block.durationMs, 1, 1, { group })
+        break
+      case 'emom':
+        for (let r = 1; r <= block.rounds; r++) {
+          const base = block.label ?? 'EMOM'
+          push('work', `${base} ${r}/${block.rounds}`, block.intervalMs, r, block.rounds, {
+            group,
+          })
+        }
+        break
+      case 'interval':
+        for (let r = 1; r <= block.rounds; r++) {
+          const base = block.label ?? 'Work'
+          push('work', `${base} ${r}/${block.rounds}`, block.workMs, r, block.rounds, {
+            group,
+          })
+          // No trailing rest: the block ends on its last work segment.
+          if (r < block.rounds) {
+            push('rest', `Rest ${r}/${block.rounds}`, block.restMs, r, block.rounds, {
+              group,
+            })
+          }
+        }
+        break
+    }
+  }
+
+  if (prepMs > 0 && !startsWithRest(config)) push('prep', 'Get ready', prepMs, 0, 0)
 
   switch (config.mode) {
     case 'forTime':
@@ -73,7 +132,9 @@ export function compile(
       })
       if (laps.length < config.rounds) {
         const r = laps.length + 1
-        push('work', `Work ${r}/${config.rounds}`, OPEN_CAP_MS, r, config.rounds, true)
+        push('work', `Work ${r}/${config.rounds}`, OPEN_CAP_MS, r, config.rounds, {
+          open: true,
+        })
       }
       break
     }
@@ -96,32 +157,24 @@ export function compile(
     case 'composite':
       // Blocks run back-to-back; a rest *between* blocks is its own rest block.
       for (const block of config.blocks) {
-        switch (block.type) {
-          case 'work':
-            push('work', block.label ?? 'Work', block.durationMs, 1, 1)
-            break
-          case 'rest':
-            push('rest', block.label ?? 'Rest', block.durationMs, 1, 1)
-            break
-          case 'amrap':
-            push('work', block.label ?? 'AMRAP', block.durationMs, 1, 1)
-            break
-          case 'emom':
-            for (let r = 1; r <= block.rounds; r++) {
-              const base = block.label ?? 'EMOM'
-              push('work', `${base} ${r}/${block.rounds}`, block.intervalMs, r, block.rounds)
-            }
-            break
-          case 'interval':
-            for (let r = 1; r <= block.rounds; r++) {
-              const base = block.label ?? 'Work'
-              push('work', `${base} ${r}/${block.rounds}`, block.workMs, r, block.rounds)
-              // No trailing rest: the block ends on its last work segment.
-              if (r < block.rounds) {
-                push('rest', `Rest ${r}/${block.rounds}`, block.restMs, r, block.rounds)
-              }
-            }
-            break
+        if (block.type !== 'group') {
+          pushLeaf(block)
+          continue
+        }
+        // A set block replays its children once per set, with the programmed
+        // break in between — and none after the final set.
+        for (let s = 1; s <= block.sets; s++) {
+          const group: SegmentGroup = {
+            ...(block.label ? { label: block.label } : {}),
+            set: s,
+            sets: block.sets,
+          }
+          for (const child of block.children) pushLeaf(child, group)
+          if (s < block.sets && block.restBetweenSetsMs > 0) {
+            push('rest', 'Rest between sets', block.restBetweenSetsMs, s, block.sets, {
+              group,
+            })
+          }
         }
       }
       break

@@ -12,12 +12,22 @@ devices with last-write-wins merging.
 
 - **Timers** — For Time (cap), AMRAP, EMOM, Intervals, 1:1, and a **Custom
   chipper**: chain heterogeneous, named blocks (Work/Rest/AMRAP/EMOM/Interval)
-  into one workout that runs end to end, with one-tap starter templates. One
-  engine: every mode compiles to a segment list with 3-2-1 beeps,
+  into one workout that runs end to end, with one-tap starter templates. Wrap
+  any run of blocks in a **Sets block** — "3 sets of 45s push / 15s breathe /
+  45s pull, 90s between sets" — and the run screen counts your sets as you go.
+  One engine: every mode compiles to a segment list with 3-2-1 beeps,
   sample-accurate Web Audio cues, wake lock, vibration, and a visual flash for
   iOS silent mode. Drift-free: state derives from wall-clock event logs, so
   backgrounding, phone calls, and even page reloads can't lose a workout
   ("Resume" is automatic).
+- **Round splits** — 1:1 sessions show every round time as you go, with the
+  delta against the round before it, so you know mid-workout whether you're
+  fading. Every finished session ends on a breakdown — rounds, total work,
+  best, average — and the whole thing is kept in the log.
+- **Every number is typable** — tap any value (timer durations, rounds, sets,
+  reps, percentages) to type it instead of tapping −/+ a dozen times. Time
+  fields take input like a stopwatch: digits fill from the right and the colon
+  writes itself, so `130` is 1:30 without reaching for a punctuation key.
 - **Today's weights** — enter `5×3 Back Squat @ 75%` once; loads are computed
   from your stored 1RMs and rounded to what you can actually put on a bar.
   Blocks aren't just straight sets: build **waves** (per-set percentages, with
@@ -26,8 +36,11 @@ devices with last-write-wins merging.
 - **Lifts** — append-only 1RM history (PR progression for free), instant
   50–100% tables, custom percentages, kg/lbs with plate-aware rounding.
 - **Log** — month-grouped history. Every finished timer auto-saves (a rolling
-  last-15 safety net, tagged `auto`); tap **Add details** to enrich one into a
-  permanent entry. Any entry is fully editable.
+  last-15 safety net, tagged `auto`) with the plan it ran, the clock time, and
+  the round-by-round splits; sessions you end early are saved too, marked
+  `Ended early`. Tap **Add details** to enrich one into a permanent entry —
+  annotating never overwrites what the clock measured. Any entry is fully
+  editable.
 - **Today's weights** — a one-tap **Reset day** clears the whole sheet.
 
 ## Development

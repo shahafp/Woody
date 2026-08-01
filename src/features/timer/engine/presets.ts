@@ -2,6 +2,8 @@ import { formatClock } from '@/lib/format'
 import type {
   CompositeBlock,
   CompositeBlockType,
+  CompositeGroupBlock,
+  CompositeLeafBlock,
   TimerConfig,
   TimerMode,
 } from './types'
@@ -9,17 +11,21 @@ import type {
 type DistributiveOmit<T, K extends keyof T> = T extends unknown ? Omit<T, K> : never
 
 /** A chipper block before it gets an id — templates and defaults are id-free. */
-export type CompositeBlockSpec = DistributiveOmit<CompositeBlock, 'id'>
+export type CompositeLeafSpec = DistributiveOmit<CompositeLeafBlock, 'id'>
+export type CompositeGroupSpec = Omit<CompositeGroupBlock, 'id' | 'children'> & {
+  children: CompositeLeafSpec[]
+}
+export type CompositeBlockSpec = CompositeLeafSpec | CompositeGroupSpec
 
 const MIN = 60_000
 const SEC = 1_000
 
-export function forTime(capMinutes: number): TimerConfig {
-  return { mode: 'forTime', capMs: capMinutes * MIN }
+export function forTime(capMs: number): TimerConfig {
+  return { mode: 'forTime', capMs }
 }
 
-export function amrap(minutes: number): TimerConfig {
-  return { mode: 'amrap', durationMs: minutes * MIN }
+export function amrap(durationMs: number): TimerConfig {
+  return { mode: 'amrap', durationMs }
 }
 
 export function emom(rounds: number, intervalSeconds = 60): TimerConfig {
@@ -73,6 +79,29 @@ export function describeBlock(block: CompositeBlock): string {
       return `EMOM ${block.rounds}×${formatClock(block.intervalMs)}`
     case 'interval':
       return `${block.rounds}×${formatClock(block.workMs)}/${formatClock(block.restMs)}`
+    case 'group': {
+      const inside = block.children.map(describeBlock).join(' + ')
+      const name = block.label ? `${block.label}: ` : ''
+      return `${name}${block.sets} sets × (${inside || 'empty'})`
+    }
+  }
+}
+
+/** Clock time a block occupies, sets and inner rests included. */
+export function blockMs(block: CompositeBlock): number {
+  switch (block.type) {
+    case 'work':
+    case 'rest':
+    case 'amrap':
+      return block.durationMs
+    case 'emom':
+      return block.intervalMs * block.rounds
+    case 'interval':
+      return block.workMs * block.rounds + block.restMs * Math.max(0, block.rounds - 1)
+    case 'group': {
+      const set = block.children.reduce((sum, child) => sum + blockMs(child), 0)
+      return set * block.sets + block.restBetweenSetsMs * Math.max(0, block.sets - 1)
+    }
   }
 }
 
@@ -101,8 +130,8 @@ export function describe(config: TimerConfig): string {
   }
 }
 
-/** A fresh block of a given type with sensible starting values. */
-export function defaultBlock(type: CompositeBlockType): CompositeBlockSpec {
+/** A fresh leaf block with sensible starting values — set blocks don't nest. */
+export function defaultLeaf(type: Exclude<CompositeBlockType, 'group'>): CompositeLeafSpec {
   switch (type) {
     case 'work':
       return { type: 'work', durationMs: 60 * SEC }
@@ -117,12 +146,35 @@ export function defaultBlock(type: CompositeBlockType): CompositeBlockSpec {
   }
 }
 
-/** Attach ids to block specs (templates, defaults) so the builder can key them. */
+/** A fresh block of a given type — a set block starts as work + rest, ×3. */
+export function defaultBlock(type: CompositeBlockType): CompositeBlockSpec {
+  if (type !== 'group') return defaultLeaf(type)
+  return {
+    type: 'group',
+    sets: 3,
+    restBetweenSetsMs: 90 * SEC,
+    children: [defaultLeaf('work'), defaultLeaf('rest')],
+  }
+}
+
+/** Attach ids to leaf specs so the builder can key them. */
+export function stampLeaves(
+  specs: CompositeLeafSpec[],
+  makeId: () => string,
+): CompositeLeafBlock[] {
+  return specs.map((spec) => ({ ...spec, id: makeId() }) as CompositeLeafBlock)
+}
+
+/** Attach ids to block specs (templates, defaults), set-block children included. */
 export function stampBlocks(
   specs: CompositeBlockSpec[],
   makeId: () => string,
 ): CompositeBlock[] {
-  return specs.map((spec) => ({ ...spec, id: makeId() }) as CompositeBlock)
+  return specs.map((spec) =>
+    spec.type === 'group'
+      ? { ...spec, id: makeId(), children: stampLeaves(spec.children, makeId) }
+      : ({ ...spec, id: makeId() } as CompositeBlock),
+  )
 }
 
 /** One-tap starters that show off chaining different block types. */
@@ -147,6 +199,22 @@ export const COMPOSITE_TEMPLATES: Array<{ name: string; blocks: CompositeBlockSp
       { type: 'interval', label: 'Fast', workMs: 40 * SEC, restMs: 20 * SEC, rounds: 5 },
       { type: 'rest', durationMs: 2 * MIN },
       { type: 'interval', label: 'Grind', workMs: 60 * SEC, restMs: 30 * SEC, rounds: 5 },
+    ],
+  },
+  {
+    name: '3 Sets',
+    blocks: [
+      {
+        type: 'group',
+        label: 'A',
+        sets: 3,
+        restBetweenSetsMs: 90 * SEC,
+        children: [
+          { type: 'work', label: 'A1', durationMs: 45 * SEC },
+          { type: 'rest', durationMs: 15 * SEC },
+          { type: 'work', label: 'A2', durationMs: 45 * SEC },
+        ],
+      },
     ],
   },
 ]

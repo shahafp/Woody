@@ -8,9 +8,11 @@ import {
   scheduleCue,
   unlockAudio,
 } from './audio/audioEngine'
+import type { WorkoutLogRow } from '@/lib/db/types'
 import { compile, DEFAULT_PREP_MS } from './engine/compile'
 import { describe } from './engine/presets'
 import { computeView, lapOffsets } from './engine/runtime'
+import { buildSplits } from './engine/splits'
 import type {
   CompiledTimer,
   CueSound,
@@ -18,6 +20,12 @@ import type {
   TimerEvent,
   TimerView,
 } from './engine/types'
+
+/**
+ * Below this, a session was a mis-tap, not a workout: it never reaches the
+ * log when the athlete ends it early.
+ */
+export const MIN_LOGGABLE_MS = 60_000
 
 interface TimerState {
   compiled: CompiledTimer | null
@@ -76,10 +84,42 @@ let lastViewKey = ''
 let recordedStartAt: number | null = null
 
 /**
- * Auto-save a finished workout to the log exactly once so a stray CLOSE can't
- * lose it. For Time captures its final time; other modes have no measured
- * result and are logged as a timestamped placeholder to enrich later.
+ * Auto-save a session to the log exactly once so a stray CLOSE can't lose it.
+ * Everything the clock knows goes in: the config that was run, the total time
+ * on it, and the round-by-round splits — the detail a coach actually reviews
+ * a week later. For Time additionally captures its final time as the result.
  */
+function recordSession(
+  compiled: CompiledTimer,
+  events: TimerEvent[],
+  view: TimerView,
+  completed: boolean,
+  set: (partial: Partial<TimerState>) => void,
+): void {
+  const startAt = events[0]?.at
+  if (startAt === undefined || startAt === recordedStartAt) return
+  recordedStartAt = startAt
+  const config = compiled.config
+  const isForTime = config.mode === 'forTime'
+  const workMs = view.finishedWorkMs ?? view.workElapsedMs
+  const splits = buildSplits(compiled, view.elapsedActiveMs)
+  const result: WorkoutLogRow['result'] = { elapsedMs: workMs }
+  if (isForTime) result.timeMs = workMs
+  // A single work segment is the workout itself — no breakdown to keep.
+  if (splits.length > 1) result.splits = splits
+  if (!completed) result.completed = false
+  void addAutoLog({
+    performedAt: new Date().toISOString().slice(0, 10),
+    title: describe(config),
+    description: '',
+    timerConfig: config,
+    resultType: isForTime ? 'time' : 'none',
+    result,
+    rx: true,
+    notes: null,
+  }).then((row) => set({ lastAutoLogId: row.id }))
+}
+
 function recordDone(
   compiled: CompiledTimer,
   events: TimerEvent[],
@@ -87,21 +127,7 @@ function recordDone(
   set: (partial: Partial<TimerState>) => void,
 ): void {
   if (view.phase !== 'done') return
-  const startAt = events[0]?.at
-  if (startAt === undefined || startAt === recordedStartAt) return
-  recordedStartAt = startAt
-  const config = compiled.config
-  const isForTime = config.mode === 'forTime'
-  void addAutoLog({
-    performedAt: new Date().toISOString().slice(0, 10),
-    title: describe(config),
-    description: '',
-    timerConfig: config,
-    resultType: isForTime ? 'time' : 'none',
-    result: isForTime ? { timeMs: view.finishedWorkMs ?? view.workElapsedMs } : {},
-    rx: true,
-    notes: null,
-  }).then((row) => set({ lastAutoLogId: row.id }))
+  recordSession(compiled, events, view, true, set)
 }
 
 export const useTimerStore = create<TimerState>((set, get) => ({
@@ -171,6 +197,12 @@ export const useTimerStore = create<TimerState>((set, get) => ({
   },
 
   dismiss: () => {
+    // Ending early is still training done. Anything past the mis-tap
+    // threshold goes to the log with the rounds it got through.
+    const { compiled, events, view } = get()
+    if (compiled && view && view.phase !== 'done' && view.workElapsedMs >= MIN_LOGGABLE_MS) {
+      recordSession(compiled, events, view, false, set)
+    }
     cancelScheduledCues()
     void db.activeSession.delete('current')
     lastViewKey = ''

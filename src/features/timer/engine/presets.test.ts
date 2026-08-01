@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  blockMs,
   COMPOSITE_TEMPLATES,
   defaultBlock,
   describe as describeConfig,
@@ -8,6 +9,7 @@ import {
   ratioLabel,
   stampBlocks,
 } from './presets'
+import type { CompositeGroupBlock } from './types'
 
 describe('ratioInterval preset', () => {
   it('builds the config; ratio is rest ÷ work', () => {
@@ -64,5 +66,44 @@ describe('composite helpers', () => {
     const stamped = stampBlocks(COMPOSITE_TEMPLATES[0].blocks, () => `id-${n++}`)
     expect(stamped[0]).toMatchObject({ ...spec, id: 'id-0' })
     expect(spec).not.toHaveProperty('id')
+  })
+})
+
+describe('set blocks', () => {
+  const group: CompositeGroupBlock = {
+    id: 'g',
+    type: 'group',
+    label: 'A',
+    sets: 3,
+    restBetweenSetsMs: 90_000,
+    children: [
+      { id: 'c1', type: 'work', label: 'A1', durationMs: 45_000 },
+      { id: 'c2', type: 'rest', durationMs: 15_000 },
+    ],
+  }
+
+  it('describes the block as sets of its contents', () => {
+    expect(describeBlock(group)).toBe('A: 3 sets × (A1 0:45 + Rest 0:15)')
+  })
+
+  it('adds up sets and the rest between them', () => {
+    expect(blockMs(group)).toBe(3 * 60_000 + 2 * 90_000)
+    expect(blockMs({ id: 'i', type: 'interval', workMs: 40_000, restMs: 20_000, rounds: 3 })).toBe(
+      3 * 40_000 + 2 * 20_000,
+    )
+  })
+
+  it('defaults to work + rest, three times over', () => {
+    expect(defaultBlock('group')).toMatchObject({ type: 'group', sets: 3 })
+  })
+
+  it('stamps ids on the children too, so the builder can key them', () => {
+    let n = 0
+    const [stamped] = stampBlocks([defaultBlock('group')], () => `id-${n++}`)
+    expect(stamped.id).toBe('id-0')
+    expect((stamped as CompositeGroupBlock).children.map((c) => c.id)).toEqual([
+      'id-1',
+      'id-2',
+    ])
   })
 })

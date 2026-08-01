@@ -109,6 +109,10 @@ export const en = {
   'log.auto': 'auto',
   'log.edit': 'Edit',
   'log.editTitle': 'EDIT WORKOUT',
+  'log.clockTime': 'Clock time',
+  'log.splits': 'Round splits',
+  'log.endedEarly': 'Ended early',
+  'log.plan': 'Plan',
 } as const
 
 export type I18nKey = keyof typeof en

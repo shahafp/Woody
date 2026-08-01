@@ -13,7 +13,13 @@ export interface CustomStep {
   label?: string
 }
 
-export type CompositeBlockType = 'work' | 'rest' | 'amrap' | 'emom' | 'interval'
+export type CompositeBlockType =
+  | 'work'
+  | 'rest'
+  | 'amrap'
+  | 'emom'
+  | 'interval'
+  | 'group'
 
 /**
  * One segment of a chipper. Each block is a self-contained mini-workout; the
@@ -21,7 +27,7 @@ export type CompositeBlockType = 'work' | 'rest' | 'amrap' | 'emom' | 'interval'
  * the run screen (e.g. "THRUSTERS"). Blocks carry an id so the builder can
  * reorder them without React key churn; compilation ignores it.
  */
-export type CompositeBlock =
+export type CompositeLeafBlock =
   | { id: string; type: 'work'; label?: string; durationMs: number }
   | { id: string; type: 'rest'; label?: string; durationMs: number }
   | { id: string; type: 'amrap'; label?: string; durationMs: number }
@@ -34,6 +40,24 @@ export type CompositeBlock =
       restMs: number
       rounds: number
     }
+
+/**
+ * A set block: its children run in order and the whole sequence repeats for
+ * `sets`, with `restBetweenSetsMs` in between (never after the last set) —
+ * "3 sets of 40s push / 20s hold, 90s between sets". One level deep on
+ * purpose: a set block holds leaf blocks only, so the timeline stays readable
+ * on the run screen.
+ */
+export interface CompositeGroupBlock {
+  id: string
+  type: 'group'
+  label?: string
+  sets: number
+  restBetweenSetsMs: number
+  children: CompositeLeafBlock[]
+}
+
+export type CompositeBlock = CompositeLeafBlock | CompositeGroupBlock
 
 export type TimerConfig =
   | { mode: 'forTime'; capMs: number }
@@ -55,6 +79,14 @@ export interface Cue {
   vibrate?: number[]
 }
 
+/** The pass through a set block a segment belongs to. */
+export interface SegmentGroup {
+  label?: string
+  /** 1-based. */
+  set: number
+  sets: number
+}
+
 export interface Segment {
   index: number
   kind: 'prep' | 'work' | 'rest'
@@ -67,6 +99,26 @@ export interface Segment {
   totalRounds: number
   /** Work segment whose end isn't known yet — awaiting a lap. */
   open?: boolean
+  /** Set block this segment came from, when it repeats for sets. */
+  group?: SegmentGroup
+}
+
+/**
+ * What one round actually took, derived from the timeline the athlete ran.
+ * Persisted with the log entry, so history keeps the full round-by-round
+ * story of a session — not just its final time.
+ */
+export interface RoundSplit {
+  /** 1-based position among the session's work segments. */
+  index: number
+  /** Movement/block name, when it says more than the round number does. */
+  label?: string
+  workMs: number
+  /** Rest that followed, when the session got that far. */
+  restMs?: number
+  group?: SegmentGroup
+  /** The round was cut short — the session ended inside it. */
+  partial?: boolean
 }
 
 export interface CompiledTimer {

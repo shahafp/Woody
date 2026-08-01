@@ -28,6 +28,8 @@ interface FormInitial {
   rx: boolean
   description: string
   notes: string
+  /** What the timer measured — carried through an edit untouched. */
+  captured: Pick<WorkoutLogRow['result'], 'elapsedMs' | 'splits' | 'completed'>
 }
 
 /** Loads the entry when editing, then hands stable initial values to the form. */
@@ -79,6 +81,7 @@ export function LogEntryFormScreen() {
         rx: true,
         description: '',
         notes: '',
+        captured: {},
       }}
       onSubmit={(entry) => addLog({ timerConfig: null, ...entry })}
     />
@@ -100,6 +103,11 @@ function initialFromRow(row: WorkoutLogRow, unit: 'kg' | 'lbs'): FormInitial {
     rx: row.rx,
     description: row.description,
     notes: row.notes ?? '',
+    captured: {
+      ...(row.result.elapsedMs === undefined ? {} : { elapsedMs: row.result.elapsedMs }),
+      ...(row.result.splits === undefined ? {} : { splits: row.result.splits }),
+      ...(row.result.completed === undefined ? {} : { completed: row.result.completed }),
+    },
   }
 }
 
@@ -137,7 +145,9 @@ function LogForm({
   const [notes, setNotes] = useState(initial.notes)
 
   const save = () => {
-    const result: WorkoutLogRow['result'] = {}
+    // Scored fields are rebuilt from the form; the timer's own measurements
+    // ride along so annotating an entry never erases its round splits.
+    const result: WorkoutLogRow['result'] = { ...initial.captured }
     if (resultType === 'time') {
       const ms = parseClock(time)
       if (ms !== null) result.timeMs = ms

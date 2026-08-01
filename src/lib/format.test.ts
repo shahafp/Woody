@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { formatClock, formatCountdown, parseClock } from './format'
+import {
+  formatClock,
+  formatCountdown,
+  maskClock,
+  parseClock,
+  parseCount,
+} from './format'
 
 describe('formatClock', () => {
   it('floors to the started second', () => {
@@ -43,5 +49,42 @@ describe('parseClock', () => {
 
   it('round trips with formatClock', () => {
     expect(formatClock(parseClock('17:42')!)).toBe('17:42')
+  })
+})
+
+describe('maskClock', () => {
+  it('fills the clock from the right as digits arrive', () => {
+    expect(maskClock('')).toBe('')
+    expect(maskClock('3')).toBe('0:03')
+    expect(maskClock('32')).toBe('0:32')
+    expect(maskClock('320')).toBe('3:20')
+    expect(maskClock('1230')).toBe('12:30')
+    expect(maskClock('12345')).toBe('1:23:45')
+    expect(maskClock('123456')).toBe('12:34:56')
+  })
+
+  it('re-masks its own output, so typing and backspacing stay stable', () => {
+    expect(maskClock('3:20')).toBe('3:20')
+    expect(maskClock('3:2')).toBe('0:32') // backspace over the last digit
+    expect(maskClock('0:03')).toBe('0:03')
+  })
+
+  it('ignores anything that is not a digit and keeps the last six', () => {
+    expect(maskClock('a1b3c0')).toBe('1:30')
+    expect(maskClock('1234567')).toBe('23:45:67')
+  })
+
+  it('round trips a formatted clock', () => {
+    expect(maskClock(formatClock(450_000))).toBe('7:30')
+    expect(maskClock(formatClock(720_000))).toBe('12:00')
+  })
+})
+
+describe('parseCount', () => {
+  it('takes whole numbers only', () => {
+    expect(parseCount('12')).toBe(12)
+    expect(parseCount(' 3 ')).toBe(3)
+    expect(parseCount('3.5')).toBeNull()
+    expect(parseCount('')).toBeNull()
   })
 })

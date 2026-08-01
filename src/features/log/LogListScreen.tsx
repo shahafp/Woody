@@ -99,11 +99,23 @@ export function LogListScreen() {
                           {t('log.rx')}
                         </span>
                       )}
+                      {log.result.splits && (
+                        <span className="ml-2">{log.result.splits.length} rounds</span>
+                      )}
+                      {log.result.completed === false && (
+                        <span className="ml-2 text-alarm">{t('log.endedEarly')}</span>
+                      )}
                     </div>
                   </div>
                   <span className="flex shrink-0 items-center gap-2">
-                    {result && (
+                    {result ? (
                       <span className="font-display text-xl text-work">{result}</span>
+                    ) : (
+                      log.result.elapsedMs !== undefined && (
+                        <span className="font-display text-xl text-chalk-dim">
+                          {formatClock(log.result.elapsedMs)}
+                        </span>
+                      )
                     )}
                     <ChevronRight size={18} className="text-chalk-dim" />
                   </span>

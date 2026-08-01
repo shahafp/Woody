@@ -3,12 +3,12 @@ import { Bookmark, X } from 'lucide-react'
 import { useState } from 'react'
 import { InstallHint } from '@/app/InstallHint'
 import { db } from '@/lib/db/db'
-import { formatClock } from '@/lib/format'
+import { formatClock, parseClock, parseCount } from '@/lib/format'
 import { newId } from '@/lib/ids'
 import { CompositeBuilder } from './components/CompositeBuilder'
 import { ChipRow, CompactStepper } from './components/CompactStepper'
 import { MinutePicker } from './components/MinutePicker'
-import { compile } from './engine/compile'
+import { compile, startsWithRest } from './engine/compile'
 import {
   amrap,
   type CompositeBlockSpec,
@@ -32,9 +32,10 @@ const MODE_HINTS: Record<TimerMode, string> = {
   amrap: 'As many rounds as possible before the clock runs out.',
   emom: 'New round every interval, on the minute.',
   interval: 'Fixed work and rest, repeated for rounds.',
-  ratioInterval: 'Work until you tap Round Done — rest matches your work time at the ratio you pick.',
+  ratioInterval: 'Work until you tap Round Done — rest matches your work time at the ratio you pick. Every round time is kept.',
   custom: 'Your own sequence of work and rest steps, repeated for rounds.',
-  composite: 'Chain blocks — EMOM, AMRAP, intervals, work, rest — into one workout that runs end to end.',
+  composite:
+    'Chain blocks — EMOM, AMRAP, intervals, work, rest — into one workout, and wrap any run of them in a Sets block that repeats.',
 }
 
 /** Faithfully expand a legacy custom preset into chipper blocks (same timeline). */
@@ -56,8 +57,20 @@ function customToBlocks(config: Extract<TimerConfig, { mode: 'custom' }>): Compo
 }
 
 const SEC = 1000
+const MIN = 60_000
 const clampSec = (s: number) => Math.min(600, Math.max(5, s))
 const clampRounds = (r: number) => Math.min(99, Math.max(1, r))
+
+/** Typed time — the field hands over "1:30"; bare seconds still parse. */
+const editSeconds = (apply: (seconds: number) => void) => (text: string) => {
+  const ms = parseClock(text)
+  if (ms !== null) apply(clampSec(Math.round(ms / SEC)))
+}
+
+const editRounds = (apply: (rounds: number) => void) => (text: string) => {
+  const n = parseCount(text)
+  if (n !== null) apply(clampRounds(n))
+}
 
 export function TimerSetupScreen() {
   const start = useTimerStore((s) => s.start)
@@ -71,8 +84,8 @@ export function TimerSetupScreen() {
   )
 
   const [mode, setMode] = useState<TimerMode>('amrap')
-  const [amrapMin, setAmrapMin] = useState(12)
-  const [capMin, setCapMin] = useState(20)
+  const [amrapMs, setAmrapMs] = useState(12 * MIN)
+  const [capMs, setCapMs] = useState(20 * MIN)
   const [emomIntervalSec, setEmomIntervalSec] = useState(60)
   const [emomRounds, setEmomRounds] = useState(10)
   const [intWorkSec, setIntWorkSec] = useState(40)
@@ -87,9 +100,9 @@ export function TimerSetupScreen() {
 
   const config: TimerConfig =
     mode === 'forTime'
-      ? forTime(capMin)
+      ? forTime(capMs)
       : mode === 'amrap'
-        ? amrap(amrapMin)
+        ? amrap(amrapMs)
         : mode === 'emom'
           ? { mode: 'emom', intervalMs: emomIntervalSec * SEC, rounds: emomRounds }
           : mode === 'interval'
@@ -99,6 +112,7 @@ export function TimerSetupScreen() {
               : { mode: 'composite', blocks: compositeBlocks }
 
   const workoutMs = compile(config, 0).totalMs
+  const restFirst = startsWithRest(config)
 
   const loadConfig = (c: TimerConfig) => {
     // Legacy custom presets open in the chipper builder (identical timeline).
@@ -110,10 +124,10 @@ export function TimerSetupScreen() {
     setMode(c.mode)
     switch (c.mode) {
       case 'forTime':
-        setCapMin(Math.round(c.capMs / 60000))
+        setCapMs(c.capMs)
         break
       case 'amrap':
-        setAmrapMin(Math.round(c.durationMs / 60000))
+        setAmrapMs(c.durationMs)
         break
       case 'emom':
         setEmomIntervalSec(Math.round(c.intervalMs / SEC))
@@ -184,9 +198,9 @@ export function TimerSetupScreen() {
           <div className="flex justify-center py-6">
             <MinutePicker
               label="Duration"
-              minutes={amrapMin}
+              valueMs={amrapMs}
               chips={[8, 10, 12, 15, 20, 25]}
-              onChange={setAmrapMin}
+              onChange={setAmrapMs}
             />
           </div>
         )}
@@ -195,9 +209,9 @@ export function TimerSetupScreen() {
           <div className="flex justify-center py-6">
             <MinutePicker
               label="Time cap"
-              minutes={capMin}
+              valueMs={capMs}
               chips={[10, 15, 20, 25, 30, 40]}
-              onChange={setCapMin}
+              onChange={setCapMs}
             />
           </div>
         )}
@@ -209,6 +223,8 @@ export function TimerSetupScreen() {
               display={formatClock(emomIntervalSec * SEC)}
               onDecrement={() => setEmomIntervalSec((v) => clampSec(v - 15))}
               onIncrement={() => setEmomIntervalSec((v) => clampSec(v + 15))}
+              onEdit={editSeconds(setEmomIntervalSec)}
+              editMask="clock"
             />
             <ChipRow
               values={[30, 45, 60, 90, 120, 180]}
@@ -221,6 +237,7 @@ export function TimerSetupScreen() {
               display={`${emomRounds}`}
               onDecrement={() => setEmomRounds((v) => clampRounds(v - 1))}
               onIncrement={() => setEmomRounds((v) => clampRounds(v + 1))}
+              onEdit={editRounds(setEmomRounds)}
             />
             <ChipRow
               values={[6, 8, 10, 12, 15, 20]}
@@ -238,6 +255,8 @@ export function TimerSetupScreen() {
               display={formatClock(intWorkSec * SEC)}
               onDecrement={() => setIntWorkSec((v) => clampSec(v - 5))}
               onIncrement={() => setIntWorkSec((v) => clampSec(v + 5))}
+              onEdit={editSeconds(setIntWorkSec)}
+              editMask="clock"
             />
             <ChipRow
               values={[20, 30, 40, 45, 60, 90]}
@@ -250,6 +269,8 @@ export function TimerSetupScreen() {
               display={formatClock(intRestSec * SEC)}
               onDecrement={() => setIntRestSec((v) => clampSec(v - 5))}
               onIncrement={() => setIntRestSec((v) => clampSec(v + 5))}
+              onEdit={editSeconds(setIntRestSec)}
+              editMask="clock"
             />
             <ChipRow
               values={[10, 15, 20, 30, 45, 60]}
@@ -262,6 +283,7 @@ export function TimerSetupScreen() {
               display={`${intRounds}`}
               onDecrement={() => setIntRounds((v) => clampRounds(v - 1))}
               onIncrement={() => setIntRounds((v) => clampRounds(v + 1))}
+              onEdit={editRounds(setIntRounds)}
             />
           </div>
         )}
@@ -282,6 +304,7 @@ export function TimerSetupScreen() {
               display={`${ratioRounds}`}
               onDecrement={() => setRatioRounds((v) => clampRounds(v - 1))}
               onIncrement={() => setRatioRounds((v) => clampRounds(v + 1))}
+              onEdit={editRounds(setRatioRounds)}
             />
             <ChipRow
               values={[3, 4, 5, 6, 8, 10]}
@@ -352,7 +375,10 @@ export function TimerSetupScreen() {
         START
       </button>
       <p className="mt-3 text-center text-xs text-chalk-dim">
-        10 second countdown before the clock starts.
+        {restFirst
+          ? 'Starts on your rest — no countdown first.'
+          : '10 second countdown before the clock starts.'}
+        {' Tap any number to type it in — times take the colon themselves.'}
       </p>
       <InstallHint />
     </div>

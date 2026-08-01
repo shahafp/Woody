@@ -1,14 +1,16 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { formatClock, formatCountdown } from '@/lib/format'
 import { t } from '@/lib/i18n/t'
 import { SegmentBar } from './components/SegmentBar'
+import { SplitsList, SplitsSummary, SplitsTable } from './components/SplitsView'
 import { TimeDigits } from './components/TimeDigits'
 import { describe } from './engine/presets'
+import { buildSplits } from './engine/splits'
 import type { CueSound } from './engine/types'
 import { useTimerRunner } from './hooks/useTimerRunner'
 import { useWakeLock, wakeLockSupported } from './hooks/useWakeLock'
-import { useTimerStore } from './timerStore'
+import { MIN_LOGGABLE_MS, useTimerStore } from './timerStore'
 
 const FLASH_COLORS: Record<CueSound, string> = {
   tick: 'bg-chalk',
@@ -39,13 +41,26 @@ export function TimerRunScreen() {
     return () => clearTimeout(t)
   }, [endArmed])
 
-  if (!compiled || !view) return null
+  const phase = view?.phase
+  const elapsedActiveMs = view?.elapsedActiveMs ?? 0
+  // Round times are worth showing where they're not already on the wall: a
+  // dynamic-rest session live, and any multi-round session at the finish.
+  const wantsSplits =
+    compiled !== null && (compiled.config.mode === 'ratioInterval' || phase === 'done')
+  const splits = useMemo(
+    () => (compiled && wantsSplits ? buildSplits(compiled, elapsedActiveMs) : []),
+    [compiled, wantsSplits, elapsedActiveMs],
+  )
+  const doneSplits = useMemo(() => splits.filter((s) => !s.partial), [splits])
 
-  const { phase, segment } = view
+  if (!compiled || !view || phase === undefined) return null
+
+  const { segment } = view
   const openWork = phase === 'running' && segment?.open === true
   const isForTime = compiled.config.mode === 'forTime'
-  const finalStretch =
-    phase === 'running' && view.totalRemainingMs <= 10_000
+  const isRatio = compiled.config.mode === 'ratioInterval'
+  const finalStretch = phase === 'running' && view.totalRemainingMs <= 10_000
+  const willSave = phase !== 'done' && view.workElapsedMs >= MIN_LOGGABLE_MS
 
   const digitColor =
     phase === 'paused'
@@ -100,7 +115,7 @@ export function TimerRunScreen() {
             endArmed ? 'bg-alarm text-surface' : 'bg-raised text-chalk-dim'
           }`}
         >
-          {endArmed ? 'Tap to end' : 'End'}
+          {endArmed ? (willSave ? 'Tap to save & end' : 'Tap to end') : 'End'}
         </button>
       </header>
 
@@ -114,6 +129,12 @@ export function TimerRunScreen() {
             finalStretch ? 'animate-[alarm-pulse_1s_ease-in-out_infinite]' : ''
           }`}
         />
+        {segment?.group && phase !== 'done' && (
+          <span className="text-sm font-semibold uppercase tracking-[0.2em] text-chalk-dim">
+            {segment.group.label ? `${segment.group.label} · ` : ''}
+            set {segment.group.set}/{segment.group.sets}
+          </span>
+        )}
         {view.totalRounds > 1 && phase !== 'done' && (
           <span className="font-display text-2xl tracking-wide text-chalk">
             ROUND {view.round}/{view.totalRounds}
@@ -137,9 +158,20 @@ export function TimerRunScreen() {
             </span>
           )
         })()}
+        {phase === 'done' && splits.length > 1 && (
+          <div className="mt-2 flex w-full max-w-md flex-col gap-2">
+            <SplitsSummary splits={splits} />
+            <div className="max-h-[34vh] overflow-y-auto rounded-2xl bg-raised px-2 py-2">
+              <SplitsTable splits={splits} />
+            </div>
+          </div>
+        )}
       </main>
 
       <footer className="flex flex-col gap-3 px-5">
+        {isRatio && phase !== 'done' && doneSplits.length > 0 && (
+          <SplitsList splits={doneSplits} />
+        )}
         <SegmentBar compiled={compiled} elapsedMs={view.elapsedActiveMs} />
         {!wakeLockSupported && running && (
           <p className="text-center text-sm text-chalk-dim">
