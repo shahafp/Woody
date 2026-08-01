@@ -64,15 +64,21 @@ Escape. The parent parses and clamps, so anything unreadable leaves the value
 put. Wired into `CompactStepper`, `MinutePicker`, and the WOD sheet's
 `MiniField`, which covers every −/+ control in the app.
 
-Parsing is keypad-friendly, since a numeric pad has no colon:
+Time fields carry `mask="clock"`: a phone keypad has no colon, so the field
+writes it. `maskClock` keeps the last six digits and fills the clock from the
+right — `1` → 0:01, `13` → 0:13, `130` → 1:30, `1230` → 12:30, `12345` →
+1:23:45 — re-masking its own output, so backspace walks back the same way it
+came. Non-digits are dropped, and the caret is forced to the end after each
+keystroke since the mask rewrites the whole string. One rule everywhere: a
+duration is typed as digits ending in seconds, whatever the field.
 
-- Second fields: bare digits are seconds (`90` → 1:30); `1:30` also works.
-- Minute dials: bare digits are minutes (`12` → 12:00); `7.5` and `7:30` also
-  work (`parseMinutes`).
-- Counts: whole numbers, with `%` and `+` forgiven (`parseCount`).
+The big minute dial opens on the full clock (`12:00`) rather than its short
+`12 min` display, so what you type is what you see; the "min" suffix hides
+while the field is open (`onEditingChange`). `MinutePicker` holds milliseconds
+rather than whole minutes, so a 7:30 AMRAP is expressible at all.
 
-`MinutePicker` now holds milliseconds rather than whole minutes, so a 7:30
-AMRAP is expressible at all.
+Counts (rounds, sets, reps, percent) stay unmasked — plain whole numbers, with
+`%` and `+` forgiven (`parseCount`).
 
 ## 4. No countdown in front of a rest
 

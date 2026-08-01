@@ -22,7 +22,7 @@ const SEC = 1000
 const clampDur = (s: number, lo = 5, hi = 3600) => Math.min(hi, Math.max(lo, s))
 const clampRounds = (r: number) => Math.min(99, Math.max(1, r))
 
-/** Typed seconds: bare digits read as seconds, "1:30" reads as written. */
+/** Typed time — the field hands over "1:30"; bare seconds still parse. */
 const editSeconds =
   (apply: (seconds: number) => void, lo = 5) =>
   (text: string) => {
@@ -110,6 +110,7 @@ function LeafFields({
         onDecrement={() => setSeconds(clampDur(block.durationMs / SEC - stepSec))}
         onIncrement={() => setSeconds(clampDur(block.durationMs / SEC + stepSec))}
         onEdit={editSeconds(setSeconds)}
+        editMask="clock"
       />
     )
   }
@@ -125,6 +126,7 @@ function LeafFields({
           onDecrement={() => setSeconds(clampDur(block.intervalMs / SEC - 15))}
           onIncrement={() => setSeconds(clampDur(block.intervalMs / SEC + 15))}
           onEdit={editSeconds(setSeconds)}
+          editMask="clock"
         />
         <CompactStepper
           label="Rounds"
@@ -148,6 +150,7 @@ function LeafFields({
         onDecrement={() => setWork(clampDur(block.workMs / SEC - 5))}
         onIncrement={() => setWork(clampDur(block.workMs / SEC + 5))}
         onEdit={editSeconds(setWork)}
+        editMask="clock"
       />
       <CompactStepper
         label="Rest"
@@ -155,6 +158,7 @@ function LeafFields({
         onDecrement={() => setRest(clampDur(block.restMs / SEC - 5))}
         onIncrement={() => setRest(clampDur(block.restMs / SEC + 5))}
         onEdit={editSeconds(setRest)}
+        editMask="clock"
       />
       <CompactStepper
         label="Rounds"
@@ -270,6 +274,8 @@ function GroupCard({
           setRestSeconds(clampDur(block.restBetweenSetsMs / SEC + 15, 0))
         }
         onEdit={editSeconds(setRestSeconds, 0)}
+        editMask="clock"
+        editValue={formatClock(block.restBetweenSetsMs)}
       />
 
       <span className="text-xs font-semibold uppercase tracking-[0.15em] text-chalk-dim">

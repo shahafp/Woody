@@ -1,13 +1,14 @@
 import { Minus, Plus } from 'lucide-react'
-import { formatClock, parseMinutes } from '@/lib/format'
+import { useState } from 'react'
+import { formatClock, parseClock } from '@/lib/format'
 import { EditableValue } from './EditableValue'
 
 const MIN = 60_000
 
 /**
  * The big single-duration dial (AMRAP, time cap). −/+ walks whole minutes;
- * tapping the number types one in — "9" for nine minutes, "7:30" or "7.5"
- * when the programming isn't round.
+ * tapping the number types one in stopwatch-style — "1200" for twelve
+ * minutes, "730" when the programming isn't round.
  */
 export function MinutePicker({
   label,
@@ -21,6 +22,7 @@ export function MinutePicker({
   chips: number[]
   onChange: (ms: number) => void
 }) {
+  const [editing, setEditing] = useState(false)
   const clamp = (ms: number) => Math.min(90 * MIN, Math.max(5000, ms))
   const wholeMinutes = valueMs % MIN === 0
   const display = wholeMinutes ? `${valueMs / MIN}` : formatClock(valueMs)
@@ -43,15 +45,19 @@ export function MinutePicker({
         <span className="flex items-baseline font-display text-7xl text-chalk">
           <EditableValue
             value={display}
+            editValue={formatClock(valueMs)}
+            mask="clock"
             onCommit={(text) => {
-              const ms = parseMinutes(text)
+              const ms = parseClock(text)
               if (ms !== null) onChange(clamp(ms))
             }}
             ariaLabel={`${label} — type a time`}
-            inputMode="decimal"
-            className="w-[4ch] text-center font-display text-7xl text-chalk"
+            onEditingChange={setEditing}
+            className="w-[5ch] text-center font-display text-7xl text-chalk"
           />
-          {wholeMinutes && <span className="ml-1 text-3xl text-chalk-dim">min</span>}
+          {wholeMinutes && !editing && (
+            <span className="ml-1 text-3xl text-chalk-dim">min</span>
+          )}
         </span>
         <button
           type="button"

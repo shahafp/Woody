@@ -25,7 +25,9 @@ devices with last-write-wins merging.
   fading. Every finished session ends on a breakdown — rounds, total work,
   best, average — and the whole thing is kept in the log.
 - **Every number is typable** — tap any value (timer durations, rounds, sets,
-  reps, percentages) to type it instead of tapping −/+ a dozen times.
+  reps, percentages) to type it instead of tapping −/+ a dozen times. Time
+  fields take input like a stopwatch: digits fill from the right and the colon
+  writes itself, so `130` is 1:30 without reaching for a punctuation key.
 - **Today's weights** — enter `5×3 Back Squat @ 75%` once; loads are computed
   from your stored 1RMs and rounded to what you can actually put on a bar.
   Blocks aren't just straight sets: build **waves** (per-set percentages, with

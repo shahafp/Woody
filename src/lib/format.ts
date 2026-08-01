@@ -35,16 +35,19 @@ export function parseClock(input: string): number | null {
 }
 
 /**
- * Typed entry for a minutes field: "12" → 12:00, "7.5" → 7:30, "7:30" → 7:30.
- * A bare number reads as minutes here (the field is labelled in minutes),
- * which keeps a numeric phone keypad enough to fill it in.
+ * Live mask for a typed time field: digits fill the clock from the right and
+ * the colon appears on its own, the way a stopwatch takes input.
+ * "3" → 0:03, "320" → 3:20, "1230" → 12:30, "12345" → 1:23:45.
+ * Anything that isn't a digit is dropped, so a phone keypad is enough.
  */
-export function parseMinutes(input: string): number | null {
-  const text = input.trim()
-  if (text === '') return null
-  if (text.includes(':')) return parseClock(text)
-  if (!/^\d+(\.\d+)?$/.test(text)) return null
-  return Math.round(Number(text) * 60_000)
+export function maskClock(input: string): string {
+  const digits = input.replace(/\D/g, '').slice(-6)
+  if (digits === '') return ''
+  const padded = digits.padStart(3, '0')
+  const seconds = padded.slice(-2)
+  const rest = padded.slice(0, -2)
+  if (rest.length <= 2) return `${Number(rest)}:${seconds}`
+  return `${Number(rest.slice(0, -2))}:${rest.slice(-2)}:${seconds}`
 }
 
 /** Typed entry for a whole-number field (rounds, sets). */

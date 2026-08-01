@@ -2,9 +2,9 @@ import { describe, expect, it } from 'vitest'
 import {
   formatClock,
   formatCountdown,
+  maskClock,
   parseClock,
   parseCount,
-  parseMinutes,
 } from './format'
 
 describe('formatClock', () => {
@@ -52,22 +52,31 @@ describe('parseClock', () => {
   })
 })
 
-describe('parseMinutes', () => {
-  it('reads a bare number as minutes', () => {
-    expect(parseMinutes('12')).toBe(720_000)
-    expect(parseMinutes(' 8 ')).toBe(480_000)
+describe('maskClock', () => {
+  it('fills the clock from the right as digits arrive', () => {
+    expect(maskClock('')).toBe('')
+    expect(maskClock('3')).toBe('0:03')
+    expect(maskClock('32')).toBe('0:32')
+    expect(maskClock('320')).toBe('3:20')
+    expect(maskClock('1230')).toBe('12:30')
+    expect(maskClock('12345')).toBe('1:23:45')
+    expect(maskClock('123456')).toBe('12:34:56')
   })
 
-  it('reads fractions and clock text', () => {
-    expect(parseMinutes('7.5')).toBe(450_000)
-    expect(parseMinutes('7:30')).toBe(450_000)
-    expect(parseMinutes('0:45')).toBe(45_000)
+  it('re-masks its own output, so typing and backspacing stay stable', () => {
+    expect(maskClock('3:20')).toBe('3:20')
+    expect(maskClock('3:2')).toBe('0:32') // backspace over the last digit
+    expect(maskClock('0:03')).toBe('0:03')
   })
 
-  it('rejects junk', () => {
-    expect(parseMinutes('')).toBeNull()
-    expect(parseMinutes('ten')).toBeNull()
-    expect(parseMinutes('-3')).toBeNull()
+  it('ignores anything that is not a digit and keeps the last six', () => {
+    expect(maskClock('a1b3c0')).toBe('1:30')
+    expect(maskClock('1234567')).toBe('23:45:67')
+  })
+
+  it('round trips a formatted clock', () => {
+    expect(maskClock(formatClock(450_000))).toBe('7:30')
+    expect(maskClock(formatClock(720_000))).toBe('12:00')
   })
 })
 

@@ -12,12 +12,18 @@ export function CompactStepper({
   onDecrement,
   onIncrement,
   onEdit,
+  editMask,
+  editValue,
 }: {
   label: string
   display: string
   onDecrement: () => void
   onIncrement: () => void
   onEdit?: (text: string) => void
+  /** 'clock' types the colon for you, stopwatch-style. */
+  editMask?: 'clock'
+  /** What the field opens with, when the display isn't literally editable. */
+  editValue?: string
 }) {
   const valueClass = 'w-20 text-center font-display text-3xl text-chalk'
   return (
@@ -37,6 +43,8 @@ export function CompactStepper({
         {onEdit ? (
           <EditableValue
             value={display}
+            editValue={editValue}
+            mask={editMask}
             onCommit={onEdit}
             ariaLabel={`${label} — type a value`}
             className={valueClass}

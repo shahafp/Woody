@@ -61,7 +61,7 @@ const MIN = 60_000
 const clampSec = (s: number) => Math.min(600, Math.max(5, s))
 const clampRounds = (r: number) => Math.min(99, Math.max(1, r))
 
-/** Typed seconds: bare digits read as seconds, "1:30" reads as written. */
+/** Typed time — the field hands over "1:30"; bare seconds still parse. */
 const editSeconds = (apply: (seconds: number) => void) => (text: string) => {
   const ms = parseClock(text)
   if (ms !== null) apply(clampSec(Math.round(ms / SEC)))
@@ -224,6 +224,7 @@ export function TimerSetupScreen() {
               onDecrement={() => setEmomIntervalSec((v) => clampSec(v - 15))}
               onIncrement={() => setEmomIntervalSec((v) => clampSec(v + 15))}
               onEdit={editSeconds(setEmomIntervalSec)}
+              editMask="clock"
             />
             <ChipRow
               values={[30, 45, 60, 90, 120, 180]}
@@ -255,6 +256,7 @@ export function TimerSetupScreen() {
               onDecrement={() => setIntWorkSec((v) => clampSec(v - 5))}
               onIncrement={() => setIntWorkSec((v) => clampSec(v + 5))}
               onEdit={editSeconds(setIntWorkSec)}
+              editMask="clock"
             />
             <ChipRow
               values={[20, 30, 40, 45, 60, 90]}
@@ -268,6 +270,7 @@ export function TimerSetupScreen() {
               onDecrement={() => setIntRestSec((v) => clampSec(v - 5))}
               onIncrement={() => setIntRestSec((v) => clampSec(v + 5))}
               onEdit={editSeconds(setIntRestSec)}
+              editMask="clock"
             />
             <ChipRow
               values={[10, 15, 20, 30, 45, 60]}
@@ -375,7 +378,7 @@ export function TimerSetupScreen() {
         {restFirst
           ? 'Starts on your rest — no countdown first.'
           : '10 second countdown before the clock starts.'}
-        {' Tap any number to type it in.'}
+        {' Tap any number to type it in — times take the colon themselves.'}
       </p>
       <InstallHint />
     </div>
