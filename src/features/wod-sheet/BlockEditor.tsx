@@ -2,9 +2,11 @@ import { Minus, Plus, X } from 'lucide-react'
 import { useState } from 'react'
 import type { LiftRow } from '@/lib/db/types'
 import type { WodSheetBlock, WodSheetMovement, WodSheetSet } from '@/lib/db/types'
+import { parseCount } from '@/lib/format'
 import { t } from '@/lib/i18n/t'
 import { newId } from '@/lib/ids'
 import { CompactStepper } from '@/features/timer/components/CompactStepper'
+import { EditableValue } from '@/features/timer/components/EditableValue'
 import {
   blockMovements,
   generateWave,
@@ -17,6 +19,12 @@ import {
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v))
 const clampPct = (v: number) => clamp(v, 5, 120)
 const clampReps = (v: number) => clamp(v, 1, 50)
+
+/** Typed entry for a whole-number field — "%", "+" and stray spaces are forgiven. */
+const editNumber = (apply: (value: number) => void) => (text: string) => {
+  const n = parseCount(text.replace(/[%+]/g, ''))
+  if (n !== null) apply(n)
+}
 
 const field =
   'w-full rounded-xl bg-edge px-3 py-2.5 text-base text-chalk outline-none placeholder:text-chalk-dim'
@@ -264,6 +272,9 @@ function MovementEditor({
             onIncrement={() =>
               setSets(uniformSets(clamp(movement.sets.length + 1, 1, 12), first.reps, first.percent))
             }
+            onEdit={editNumber((v) =>
+              setSets(uniformSets(clamp(v, 1, 12), first.reps, first.percent)),
+            )}
           />
           <CompactStepper
             label={t('wod.reps')}
@@ -274,6 +285,9 @@ function MovementEditor({
             onIncrement={() =>
               setSets(uniformSets(movement.sets.length, clampReps(first.reps + 1), first.percent))
             }
+            onEdit={editNumber((v) =>
+              setSets(uniformSets(movement.sets.length, clampReps(v), first.percent)),
+            )}
           />
           <CompactStepper
             label={t('wod.percent')}
@@ -284,6 +298,9 @@ function MovementEditor({
             onIncrement={() =>
               setSets(uniformSets(movement.sets.length, first.reps, clampPct(first.percent + 5)))
             }
+            onEdit={editNumber((v) =>
+              setSets(uniformSets(movement.sets.length, first.reps, clampPct(v))),
+            )}
           />
         </div>
       ) : (
@@ -292,16 +309,20 @@ function MovementEditor({
             <div className="grid grid-cols-2 gap-2">
               <MiniField label={t('wod.base')} value={`${wave.basePercent}%`}
                 onDec={() => setWave({ ...wave, basePercent: clampPct(wave.basePercent - 5) })}
-                onInc={() => setWave({ ...wave, basePercent: clampPct(wave.basePercent + 5) })} />
+                onInc={() => setWave({ ...wave, basePercent: clampPct(wave.basePercent + 5) })}
+                onEdit={editNumber((v) => setWave({ ...wave, basePercent: clampPct(v) }))} />
               <MiniField label={t('wod.step')} value={`${wave.step > 0 ? '+' : ''}${wave.step}%`}
                 onDec={() => setWave({ ...wave, step: clamp(wave.step - 5, 0, 25) })}
-                onInc={() => setWave({ ...wave, step: clamp(wave.step + 5, 0, 25) })} />
+                onInc={() => setWave({ ...wave, step: clamp(wave.step + 5, 0, 25) })}
+                onEdit={editNumber((v) => setWave({ ...wave, step: clamp(v, 0, 25) }))} />
               <MiniField label={t('wod.sets')} value={`${wave.setsPerWave}`}
                 onDec={() => setWave({ ...wave, setsPerWave: clamp(wave.setsPerWave - 1, 1, 10) })}
-                onInc={() => setWave({ ...wave, setsPerWave: clamp(wave.setsPerWave + 1, 1, 10) })} />
+                onInc={() => setWave({ ...wave, setsPerWave: clamp(wave.setsPerWave + 1, 1, 10) })}
+                onEdit={editNumber((v) => setWave({ ...wave, setsPerWave: clamp(v, 1, 10) }))} />
               <MiniField label={t('wod.waves')} value={`${wave.waves}`}
                 onDec={() => setWave({ ...wave, waves: clamp(wave.waves - 1, 1, 6) })}
-                onInc={() => setWave({ ...wave, waves: clamp(wave.waves + 1, 1, 6) })} />
+                onInc={() => setWave({ ...wave, waves: clamp(wave.waves + 1, 1, 6) })}
+                onEdit={editNumber((v) => setWave({ ...wave, waves: clamp(v, 1, 6) }))} />
             </div>
             <button
               type="button"
@@ -318,10 +339,12 @@ function MovementEditor({
                 <span className="w-6 shrink-0 text-xs font-semibold text-chalk-dim">{i + 1}</span>
                 <MiniField label={t('wod.reps')} value={`${s.reps}`}
                   onDec={() => patchSet(i, { ...s, reps: clampReps(s.reps - 1) })}
-                  onInc={() => patchSet(i, { ...s, reps: clampReps(s.reps + 1) })} />
+                  onInc={() => patchSet(i, { ...s, reps: clampReps(s.reps + 1) })}
+                  onEdit={editNumber((v) => patchSet(i, { ...s, reps: clampReps(v) }))} />
                 <MiniField label="%" value={`${s.percent}`}
                   onDec={() => patchSet(i, { ...s, percent: clampPct(s.percent - 5) })}
-                  onInc={() => patchSet(i, { ...s, percent: clampPct(s.percent + 5) })} />
+                  onInc={() => patchSet(i, { ...s, percent: clampPct(s.percent + 5) })}
+                  onEdit={editNumber((v) => patchSet(i, { ...s, percent: clampPct(v) }))} />
                 <button
                   type="button"
                   aria-label="Remove set"
@@ -352,11 +375,14 @@ function MiniField({
   value,
   onDec,
   onInc,
+  onEdit,
 }: {
   label: string
   value: string
   onDec: () => void
   onInc: () => void
+  /** Makes the value typable; the text arrives raw for the caller to parse. */
+  onEdit?: (text: string) => void
 }) {
   return (
     <div className="flex items-center gap-1.5">
@@ -371,7 +397,16 @@ function MiniField({
       >
         <Minus size={16} />
       </button>
-      <span className="min-w-10 flex-1 text-center font-display text-lg text-chalk">{value}</span>
+      {onEdit ? (
+        <EditableValue
+          value={value}
+          onCommit={onEdit}
+          ariaLabel={`${label} — type a value`}
+          className="min-w-10 flex-1 text-center font-display text-lg text-chalk"
+        />
+      ) : (
+        <span className="min-w-10 flex-1 text-center font-display text-lg text-chalk">{value}</span>
+      )}
       <button
         type="button"
         aria-label={`More ${label}`}

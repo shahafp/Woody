@@ -1,4 +1,4 @@
-import type { TimerConfig } from '@/features/timer/engine/types'
+import type { RoundSplit, TimerConfig } from '@/features/timer/engine/types'
 import type { Unit } from '@/lib/units/convert'
 
 /**
@@ -96,7 +96,23 @@ export interface WorkoutLogRow extends Row {
   /** Provenance when the entry came from a finished timer. */
   timerConfig: TimerConfig | null
   resultType: LogResultType
-  result: { timeMs?: number; rounds?: number; reps?: number; loadKg?: number }
+  /**
+   * The scored result plus whatever the timer measured on its own. The three
+   * timer-captured keys are additive and travel inside the existing `result`
+   * JSONB, so old clients and unmigrated servers keep working untouched.
+   */
+  result: {
+    timeMs?: number
+    rounds?: number
+    reps?: number
+    loadKg?: number
+    /** Clock time the session actually ran, prep excluded. */
+    elapsedMs?: number
+    /** Round-by-round breakdown captured by the timer. */
+    splits?: RoundSplit[]
+    /** false when the athlete ended the session early. */
+    completed?: boolean
+  }
   rx: boolean
   notes: string | null
   /**

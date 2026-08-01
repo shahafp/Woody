@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { formatClock, formatCountdown, parseClock } from './format'
+import {
+  formatClock,
+  formatCountdown,
+  parseClock,
+  parseCount,
+  parseMinutes,
+} from './format'
 
 describe('formatClock', () => {
   it('floors to the started second', () => {
@@ -43,5 +49,33 @@ describe('parseClock', () => {
 
   it('round trips with formatClock', () => {
     expect(formatClock(parseClock('17:42')!)).toBe('17:42')
+  })
+})
+
+describe('parseMinutes', () => {
+  it('reads a bare number as minutes', () => {
+    expect(parseMinutes('12')).toBe(720_000)
+    expect(parseMinutes(' 8 ')).toBe(480_000)
+  })
+
+  it('reads fractions and clock text', () => {
+    expect(parseMinutes('7.5')).toBe(450_000)
+    expect(parseMinutes('7:30')).toBe(450_000)
+    expect(parseMinutes('0:45')).toBe(45_000)
+  })
+
+  it('rejects junk', () => {
+    expect(parseMinutes('')).toBeNull()
+    expect(parseMinutes('ten')).toBeNull()
+    expect(parseMinutes('-3')).toBeNull()
+  })
+})
+
+describe('parseCount', () => {
+  it('takes whole numbers only', () => {
+    expect(parseCount('12')).toBe(12)
+    expect(parseCount(' 3 ')).toBe(3)
+    expect(parseCount('3.5')).toBeNull()
+    expect(parseCount('')).toBeNull()
   })
 })

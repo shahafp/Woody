@@ -33,3 +33,23 @@ export function parseClock(input: string): number | null {
   for (const n of nums) seconds = seconds * 60 + n
   return seconds * 1000
 }
+
+/**
+ * Typed entry for a minutes field: "12" → 12:00, "7.5" → 7:30, "7:30" → 7:30.
+ * A bare number reads as minutes here (the field is labelled in minutes),
+ * which keeps a numeric phone keypad enough to fill it in.
+ */
+export function parseMinutes(input: string): number | null {
+  const text = input.trim()
+  if (text === '') return null
+  if (text.includes(':')) return parseClock(text)
+  if (!/^\d+(\.\d+)?$/.test(text)) return null
+  return Math.round(Number(text) * 60_000)
+}
+
+/** Typed entry for a whole-number field (rounds, sets). */
+export function parseCount(input: string): number | null {
+  const text = input.trim()
+  if (!/^\d+$/.test(text)) return null
+  return Number(text)
+}
