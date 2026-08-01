@@ -3,10 +3,10 @@ import { useNavigate } from 'react-router'
 import { formatClock, formatCountdown } from '@/lib/format'
 import { t } from '@/lib/i18n/t'
 import { SegmentBar } from './components/SegmentBar'
-import { SplitsStrip, SplitsSummary, SplitsTable } from './components/SplitsView'
+import { SplitsList, SplitsSummary, SplitsTable } from './components/SplitsView'
 import { TimeDigits } from './components/TimeDigits'
 import { describe } from './engine/presets'
-import { buildSplits, splitDeltaMs } from './engine/splits'
+import { buildSplits } from './engine/splits'
 import type { CueSound } from './engine/types'
 import { useTimerRunner } from './hooks/useTimerRunner'
 import { useWakeLock, wakeLockSupported } from './hooks/useWakeLock'
@@ -60,8 +60,6 @@ export function TimerRunScreen() {
   const isForTime = compiled.config.mode === 'forTime'
   const isRatio = compiled.config.mode === 'ratioInterval'
   const finalStretch = phase === 'running' && view.totalRemainingMs <= 10_000
-  const lastSplit = doneSplits[doneSplits.length - 1]
-  const lastDelta = splitDeltaMs(doneSplits, doneSplits.length - 1)
   const willSave = phase !== 'done' && view.workElapsedMs >= MIN_LOGGABLE_MS
 
   const digitColor =
@@ -149,19 +147,6 @@ export function TimerRunScreen() {
               : `elapsed ${formatClock(view.workElapsedMs)}`}
           </span>
         )}
-        {/* the pacing number: what the round before this one cost */}
-        {isRatio && phase !== 'done' && lastSplit && (
-          <span className="text-sm font-semibold uppercase tracking-[0.15em] text-chalk-dim">
-            last round {formatClock(lastSplit.workMs)}
-            {lastDelta !== null && (
-              <span className={lastDelta > 0 ? 'text-alarm' : 'text-work'}>
-                {' '}
-                {lastDelta > 0 ? '+' : '−'}
-                {formatClock(Math.abs(lastDelta))}
-              </span>
-            )}
-          </span>
-        )}
         {(() => {
           if (phase !== 'running' && phase !== 'prep') return null
           const next = segment ? compiled.segments[segment.index + 1] : null
@@ -185,7 +170,7 @@ export function TimerRunScreen() {
 
       <footer className="flex flex-col gap-3 px-5">
         {isRatio && phase !== 'done' && doneSplits.length > 0 && (
-          <SplitsStrip splits={doneSplits} />
+          <SplitsList splits={doneSplits} />
         )}
         <SegmentBar compiled={compiled} elapsedMs={view.elapsedActiveMs} />
         {!wakeLockSupported && running && (

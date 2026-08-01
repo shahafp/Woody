@@ -27,29 +27,55 @@ function Delta({ deltaMs, className }: { deltaMs: number; className?: string }) 
 }
 
 /**
- * Live round times, newest last — glanceable mid-workout so the athlete knows
- * whether they're holding pace or fading.
+ * Live round list, newest last — the same labelled columns as the finish
+ * table, so a mid-workout glance answers "was that work or rest?" instead of
+ * leaving a bare number to be decoded. Only the last few rounds are shown:
+ * the footer can't grow, and pace is judged against recent rounds anyway.
  */
-export function SplitsStrip({ splits }: { splits: RoundSplit[] }) {
+export function SplitsList({ splits, max = 4 }: { splits: RoundSplit[]; max?: number }) {
   if (splits.length === 0) return null
+  const start = Math.max(0, splits.length - max)
+  const anyRest = splits.some((s) => s.restMs !== undefined)
   return (
-    <div className="flex gap-2 overflow-x-auto pb-0.5 [scrollbar-width:none]">
-      {splits.map((split, i) => {
-        const latest = i === splits.length - 1
-        const delta = splitDeltaMs(splits, i)
+    <div className="flex flex-col rounded-2xl bg-raised px-3 py-1.5">
+      <div className="flex items-baseline gap-3 text-[10px] uppercase tracking-[0.15em] text-chalk-dim">
+        <span className="w-5">#</span>
+        <span className="flex-1">{start > 0 ? `+${start} earlier` : ''}</span>
+        <span className="w-20 text-right">work</span>
+        {anyRest && <span className="w-14 text-right">rest</span>}
+      </div>
+      {splits.slice(start).map((split, i) => {
+        const index = start + i
+        const latest = index === splits.length - 1
+        const delta = splitDeltaMs(splits, index)
         return (
-          <span
-            key={split.index}
-            className={`flex shrink-0 items-baseline gap-1.5 rounded-full px-3 py-1 text-sm ${
-              latest ? 'bg-work text-surface' : 'bg-raised text-chalk'
-            }`}
-          >
-            <span className={latest ? 'font-bold' : 'text-chalk-dim'}>{split.index}</span>
-            <span className="font-display">{formatClock(split.workMs)}</span>
-            {delta !== null && (
-              <Delta deltaMs={delta} className={latest ? 'text-surface/80' : undefined} />
+          <div key={split.index} className="flex items-baseline gap-3 py-0.5">
+            <span
+              className={`w-5 font-display text-base ${latest ? 'text-chalk' : 'text-chalk-dim'}`}
+            >
+              {split.index}
+            </span>
+            <span className="min-w-0 flex-1 truncate text-xs text-chalk-dim">
+              {split.label ?? ''}
+            </span>
+            <span className="flex w-20 items-baseline justify-end gap-1.5">
+              {delta !== null && <Delta deltaMs={delta} />}
+              <span
+                className={`font-display text-base ${latest ? 'text-chalk' : 'text-chalk/60'}`}
+              >
+                {formatClock(split.workMs)}
+              </span>
+            </span>
+            {anyRest && (
+              <span
+                className={`w-14 text-right font-display text-base ${
+                  latest ? 'text-rest' : 'text-rest/60'
+                }`}
+              >
+                {split.restMs === undefined ? '—' : formatClock(split.restMs)}
+              </span>
             )}
-          </span>
+          </div>
         )
       })}
     </div>
