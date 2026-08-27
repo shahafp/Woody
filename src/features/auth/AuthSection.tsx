@@ -1,19 +1,30 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { t } from '@/lib/i18n/t'
 import { syncNow, useSyncStore } from '@/lib/sync/engine'
+import { getFriendBootstrap, updateFriendEmailPreference } from '@/features/friends/friendsRepo'
 import { useAuthStore } from './authStore'
 
 /** Account + sync block embedded in the Settings screen. */
 export function AuthSection() {
   const status = useAuthStore((s) => s.status)
   const email = useAuthStore((s) => s.email)
-  const signInWithEmail = useAuthStore((s) => s.signInWithEmail)
+  const signInWithGoogle = useAuthStore((s) => s.signInWithGoogle)
   const signOut = useAuthStore((s) => s.signOut)
   const { syncing, lastSyncAt, error } = useSyncStore()
 
-  const [emailInput, setEmailInput] = useState('')
-  const [sent, setSent] = useState(false)
+  const [signingIn, setSigningIn] = useState(false)
   const [sendError, setSendError] = useState<string | null>(null)
+  const [emailInvitesEnabled, setEmailInvitesEnabled] = useState<boolean | null>(null)
+
+  useEffect(() => {
+    if (status !== 'signedIn') {
+      setEmailInvitesEnabled(null)
+      return
+    }
+    void getFriendBootstrap().then(({ profile }) => {
+      setEmailInvitesEnabled(profile?.emailInvitesEnabled ?? null)
+    }).catch(() => undefined)
+  }, [status])
 
   if (status === 'unconfigured') {
     return <p className="mt-3 text-sm text-chalk-dim">{t('settings.accountHint')}</p>
@@ -25,35 +36,20 @@ export function AuthSection() {
     return (
       <div className="mt-3 flex flex-col gap-3">
         <p className="text-sm text-chalk-dim">{t('auth.pitch')}</p>
-        {sent ? (
-          <p className="rounded-xl bg-raised p-4 text-sm text-work">
-            {t('auth.linkSent')}
-          </p>
-        ) : (
-          <div className="flex gap-2">
-            <input
-              value={emailInput}
-              onChange={(e) => setEmailInput(e.target.value)}
-              type="email"
-              inputMode="email"
-              autoComplete="email"
-              placeholder={t('auth.emailPlaceholder')}
-              className="min-w-0 flex-1 rounded-xl bg-raised px-4 py-3 text-base text-chalk outline-none placeholder:text-chalk-dim"
-            />
-            <button
-              type="button"
-              onClick={() => {
-                void signInWithEmail(emailInput.trim()).then((err) => {
-                  setSendError(err)
-                  if (!err) setSent(true)
-                })
-              }}
-              className="rounded-xl bg-work px-4 text-sm font-semibold text-surface"
-            >
-              {t('auth.sendLink')}
-            </button>
-          </div>
-        )}
+        <button
+          type="button"
+          disabled={signingIn}
+          onClick={() => {
+            setSigningIn(true)
+            void signInWithGoogle('/settings').then((err) => {
+              setSendError(err)
+              setSigningIn(false)
+            })
+          }}
+          className="min-h-12 rounded-xl bg-work px-4 text-sm font-semibold text-surface disabled:opacity-50"
+        >
+          {signingIn ? 'Opening Google…' : 'Continue with Google'}
+        </button>
         {sendError && <p className="text-sm text-alarm">{sendError}</p>}
       </div>
     )
@@ -71,6 +67,31 @@ export function AuthSection() {
         {error && (
           <div className="mt-1 text-xs text-alarm">
             {t('auth.syncError')}: {error}
+          </div>
+        )}
+        {emailInvitesEnabled !== null && (
+          <div className="mt-4 flex items-center justify-between border-t border-edge pt-3">
+            <div>
+              <div className="text-sm font-semibold">Workout invitation emails</div>
+              <div className="text-xs text-chalk-dim">In-app invitations always remain available.</div>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-label="Workout invitation emails"
+              aria-checked={emailInvitesEnabled}
+              className={`relative h-7 w-12 shrink-0 rounded-full ${emailInvitesEnabled ? 'bg-work' : 'bg-edge'}`}
+              onClick={() => {
+                const next = !emailInvitesEnabled
+                setEmailInvitesEnabled(next)
+                void updateFriendEmailPreference(next).catch((caught) => {
+                  setEmailInvitesEnabled(!next)
+                  setSendError(caught instanceof Error ? caught.message : 'Could not update email preference')
+                })
+              }}
+            >
+              <span className={`absolute left-0 top-0.5 h-6 w-6 rounded-full bg-chalk transition-transform ${emailInvitesEnabled ? 'translate-x-[22px]' : 'translate-x-0.5'}`} />
+            </button>
           </div>
         )}
       </div>
