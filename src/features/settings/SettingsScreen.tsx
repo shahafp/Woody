@@ -1,5 +1,6 @@
 import { t } from '@/lib/i18n/t'
 import type { Unit } from '@/lib/units/convert'
+import { Link } from 'react-router'
 import { AuthSection } from '@/features/auth/AuthSection'
 import { useSettingsStore } from './settingsStore'
 
@@ -118,6 +119,11 @@ export function SettingsScreen() {
         </h2>
         <AuthSection />
       </section>
+
+      <footer className="mt-4 flex justify-center gap-5 pb-4 text-xs text-chalk-dim">
+        <Link to="/about" className="min-h-11 py-3 underline">About Woody</Link>
+        <Link to="/privacy" className="min-h-11 py-3 underline">Privacy policy</Link>
+      </footer>
     </div>
   )
 }
