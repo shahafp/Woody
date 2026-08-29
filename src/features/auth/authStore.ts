@@ -10,7 +10,7 @@ interface AuthState {
   email: string | null
   init: () => void
   signInWithGoogle: (returnTo?: string) => Promise<string | null>
-  signInWithEmail: (email: string) => Promise<string | null>
+  signInWithEmail: (email: string, returnTo?: string) => Promise<string | null>
   signOut: () => Promise<void>
 }
 
@@ -24,17 +24,19 @@ export const useAuthStore = create<AuthState>((set) => ({
   init: () => {
     if (!supabase || initialized) return
     initialized = true
-    void supabase.auth.getSession().then(({ data: { session } }) => {
-      set(
-        session
-          ? {
-              status: 'signedIn',
-              userId: session.user.id,
-              email: session.user.email ?? null,
-            }
-          : { status: 'signedOut', userId: null, email: null },
-      )
-    })
+    void supabase.auth.getSession()
+      .then(({ data: { session } }) => {
+        set(
+          session
+            ? {
+                status: 'signedIn',
+                userId: session.user.id,
+                email: session.user.email ?? null,
+              }
+            : { status: 'signedOut', userId: null, email: null },
+        )
+      })
+      .catch(() => set({ status: 'signedOut', userId: null, email: null }))
     supabase.auth.onAuthStateChange((event, session) => {
       if (session) {
         set({
@@ -59,11 +61,12 @@ export const useAuthStore = create<AuthState>((set) => ({
     return error ? error.message : null
   },
 
-  signInWithEmail: async (email) => {
+  signInWithEmail: async (email, returnTo = '/friends') => {
     if (!supabase) return 'Sync is not configured'
+    const emailRedirectTo = new URL(returnTo, window.location.origin).toString()
     const { error } = await supabase.auth.signInWithOtp({
       email,
-      options: { emailRedirectTo: window.location.origin },
+      options: { emailRedirectTo },
     })
     return error ? error.message : null
   },
