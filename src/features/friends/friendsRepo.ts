@@ -268,10 +268,16 @@ export async function respondToInvitation(
   if (error) throw error
 }
 
+let friendSubscriptionSequence = 0
+
 export function subscribeToFriendChanges(onChange: () => void): () => void {
   if (!supabase) return () => undefined
+  // Realtime reuses a channel with the same topic. React Strict Mode can mount a
+  // replacement effect before the previous async removeChannel call completes,
+  // so every observer needs its own topic instead of reusing a subscribed one.
+  friendSubscriptionSequence += 1
   const channel = supabase
-    .channel('friends-board')
+    .channel(`friends-board-${friendSubscriptionSequence}`)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'workout_sessions' }, onChange)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'session_participants' }, onChange)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'session_invitations' }, onChange)
