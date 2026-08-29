@@ -2,17 +2,16 @@ import { useEffect, useState } from 'react'
 import { t } from '@/lib/i18n/t'
 import { syncNow, useSyncStore } from '@/lib/sync/engine'
 import { getFriendBootstrap, updateFriendEmailPreference } from '@/features/friends/friendsRepo'
+import { AuthSignInOptions } from './AuthSignInOptions'
 import { useAuthStore } from './authStore'
 
 /** Account + sync block embedded in the Settings screen. */
 export function AuthSection() {
   const status = useAuthStore((s) => s.status)
   const email = useAuthStore((s) => s.email)
-  const signInWithGoogle = useAuthStore((s) => s.signInWithGoogle)
   const signOut = useAuthStore((s) => s.signOut)
   const { syncing, lastSyncAt, error } = useSyncStore()
 
-  const [signingIn, setSigningIn] = useState(false)
   const [sendError, setSendError] = useState<string | null>(null)
   const [emailInvitesEnabled, setEmailInvitesEnabled] = useState<boolean | null>(null)
 
@@ -34,23 +33,9 @@ export function AuthSection() {
 
   if (status === 'signedOut') {
     return (
-      <div className="mt-3 flex flex-col gap-3">
+      <div className="mt-3">
         <p className="text-sm text-chalk-dim">{t('auth.pitch')}</p>
-        <button
-          type="button"
-          disabled={signingIn}
-          onClick={() => {
-            setSigningIn(true)
-            void signInWithGoogle('/settings').then((err) => {
-              setSendError(err)
-              setSigningIn(false)
-            })
-          }}
-          className="min-h-12 rounded-xl bg-work px-4 text-sm font-semibold text-surface disabled:opacity-50"
-        >
-          {signingIn ? 'Opening Google…' : 'Continue with Google'}
-        </button>
-        {sendError && <p className="text-sm text-alarm">{sendError}</p>}
+        <AuthSignInOptions returnTo="/settings" />
       </div>
     )
   }
@@ -95,6 +80,7 @@ export function AuthSection() {
           </div>
         )}
       </div>
+      {sendError && <p role="alert" className="text-sm text-alarm">{sendError}</p>}
       <div className="flex gap-2">
         <button
           type="button"

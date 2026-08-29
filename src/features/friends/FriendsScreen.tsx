@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { CalendarPlus, Check, Clock, Mail, Settings, UserPlus, Users, X } from 'lucide-react'
 import { Link, useParams } from 'react-router'
+import { AuthSignInOptions } from '@/features/auth/AuthSignInOptions'
 import { useAuthStore } from '@/features/auth/authStore'
 import {
   dateKey,
@@ -50,19 +51,10 @@ function ErrorMessage({ message }: { message: string | null }) {
 
 function SignInCard() {
   const status = useAuthStore((state) => state.status)
-  const signIn = useAuthStore((state) => state.signInWithGoogle)
-  const [error, setError] = useState<string | null>(null)
-  const [busy, setBusy] = useState(false)
 
   if (status === 'loading') return <p className="mt-8 text-chalk-dim">Checking your account…</p>
   if (status === 'unconfigured') {
     return <ErrorMessage message="Friends needs the Supabase environment variables configured." />
-  }
-
-  const handleSignIn = async () => {
-    setBusy(true)
-    setError(await signIn(window.location.pathname))
-    setBusy(false)
   }
 
   return (
@@ -72,10 +64,7 @@ function SignInCard() {
       <p className="mt-2 text-sm leading-6 text-chalk-dim">
         See when friends are training, join their session, or invite someone by email.
       </p>
-      <button type="button" className={`${primaryButton} mt-5 w-full`} disabled={busy} onClick={handleSignIn}>
-        {busy ? 'Opening Google…' : 'Continue with Google'}
-      </button>
-      <ErrorMessage message={error} />
+      <AuthSignInOptions returnTo={window.location.pathname} />
     </section>
   )
 }
