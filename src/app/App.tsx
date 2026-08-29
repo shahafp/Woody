@@ -5,6 +5,7 @@ import { useAuthStore } from '@/features/auth/authStore'
 import { FriendsScreen } from '@/features/friends/FriendsScreen'
 import { LiftDetailScreen } from '@/features/lifts/LiftDetailScreen'
 import { LiftsScreen } from '@/features/lifts/LiftsScreen'
+import { AboutScreen, PrivacyScreen } from '@/features/legal/LegalScreens'
 import { LogDetailScreen } from '@/features/log/LogDetailScreen'
 import { LogEntryFormScreen } from '@/features/log/LogEntryFormScreen'
 import { LogListScreen } from '@/features/log/LogListScreen'
@@ -56,6 +57,8 @@ export default function App() {
           <Route path="/friends" element={<FriendsScreen />} />
           <Route path="/friends/invitations/:invitationId" element={<FriendsScreen />} />
           <Route path="/settings" element={<SettingsScreen />} />
+          <Route path="/about" element={<AboutScreen />} />
+          <Route path="/privacy" element={<PrivacyScreen />} />
         </Routes>
         </AppShell>
         <TimerRunOverlay />
