@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { CalendarPlus, Check, Clock, Mail, Settings, UserPlus, Users, X } from 'lucide-react'
-import { Link, useParams } from 'react-router'
+import { CalendarPlus, Check, Clock, Mail, UserPlus, Users, X } from 'lucide-react'
+import { useParams } from 'react-router'
 import { AuthSignInOptions } from '@/features/auth/AuthSignInOptions'
 import { useAuthStore } from '@/features/auth/authStore'
 import {
@@ -372,7 +372,7 @@ export function FriendsScreen() {
 
   return (
     <div className="flex min-h-full flex-col">
-      <header className="flex items-start justify-between"><div><h1 className="font-display text-3xl tracking-wide">FRIENDS</h1><p className="mt-1 text-sm text-chalk-dim">{bootstrap?.group?.name ?? 'Find a training partner'}</p></div><Link to="/settings" aria-label="Settings" className="grid min-h-11 min-w-11 place-items-center rounded-full bg-raised"><Settings aria-hidden="true" /></Link></header>
+      <header><h1 className="font-display text-3xl tracking-wide">FRIENDS</h1><p className="mt-1 text-sm text-chalk-dim">{bootstrap?.group?.name ?? 'Find a training partner'}</p></header>
       {authStatus !== 'signedIn' ? <SignInCard /> : loading ? <p className="mt-8 text-chalk-dim">Loading your crew…</p> : !bootstrap?.profile || !bootstrap.group ? <Onboarding onComplete={refresh} /> : <>
         {!online && <p role="status" className="mt-4 rounded-xl bg-rest/15 px-3 py-2 text-sm text-rest">Offline — viewing the last loaded plans. Reconnect to make changes.</p>}
         {invitationId && linkChecked && !linkedInvitation && <p role="status" className="mt-4 rounded-xl bg-raised p-4 text-sm">This invitation is unavailable or belongs to another account.</p>}

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { ClipboardList, Dumbbell, History, Timer, Users } from 'lucide-react'
+import { ClipboardList, Dumbbell, History, Settings, Timer, Users } from 'lucide-react'
 import { NavLink } from 'react-router'
 import { useAuthStore } from '@/features/auth/authStore'
 import { listFriendInvitations, subscribeToFriendChanges } from '@/features/friends/friendsRepo'
@@ -10,6 +10,7 @@ const TABS = [
   { to: '/log', label: 'Log', icon: History },
   { to: '/lifts', label: 'Lifts', icon: Dumbbell },
   { to: '/friends', label: 'Friends', icon: Users },
+  { to: '/settings', label: 'Settings', icon: Settings },
 ]
 
 export function TabBar() {
