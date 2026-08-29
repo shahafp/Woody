@@ -343,7 +343,10 @@ export function FriendsScreen() {
   }, [authStatus, invitationId])
 
   useEffect(() => { if (authStatus === 'signedIn') { setLoading(true); void refresh() } else { setLoading(false); setBootstrap(null) } }, [authStatus, refresh])
-  useEffect(() => subscribeToFriendChanges(() => void refresh()), [refresh])
+  useEffect(() => {
+    if (authStatus !== 'signedIn') return
+    return subscribeToFriendChanges(() => void refresh())
+  }, [authStatus, refresh])
   useEffect(() => {
     const handleOnline = () => { setOnline(true); void refresh() }
     const handleOffline = () => setOnline(false)
