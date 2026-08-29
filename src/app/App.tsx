@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { BrowserRouter, Route, Routes } from 'react-router'
 import { initSyncTriggers } from '@/lib/sync/engine'
 import { useAuthStore } from '@/features/auth/authStore'
+import { FriendsScreen } from '@/features/friends/FriendsScreen'
 import { LiftDetailScreen } from '@/features/lifts/LiftDetailScreen'
 import { LiftsScreen } from '@/features/lifts/LiftsScreen'
 import { LogDetailScreen } from '@/features/log/LogDetailScreen'
@@ -52,6 +53,8 @@ export default function App() {
           <Route path="/log/:id" element={<LogDetailScreen />} />
           <Route path="/lifts" element={<LiftsScreen />} />
           <Route path="/lifts/:id" element={<LiftDetailScreen />} />
+          <Route path="/friends" element={<FriendsScreen />} />
+          <Route path="/friends/invitations/:invitationId" element={<FriendsScreen />} />
           <Route path="/settings" element={<SettingsScreen />} />
         </Routes>
         </AppShell>
