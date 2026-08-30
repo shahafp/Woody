@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { FriendSession } from './friendsTypes'
 import {
   addDays,
+  createDefaultSessionDraft,
   dateKey,
   findNearbySessions,
   formatSessionTime,
@@ -39,6 +40,23 @@ describe('friends date logic', () => {
       '2026-08-28',
       '2026-08-29',
     ])
+  })
+
+  it('uses the selected board date for a new workout', () => {
+    expect(createDefaultSessionDraft(
+      ['2026-08-30', '2026-08-31', '2026-09-01'],
+      'Asia/Jerusalem',
+      new Date('2026-08-30T06:00:00Z'),
+      '2026-08-31',
+    )).toMatchObject({ date: '2026-08-31', time: '09:15' })
+  })
+
+  it('rolls the default workout date into tomorrow near midnight', () => {
+    expect(createDefaultSessionDraft(
+      ['2026-08-30', '2026-08-31', '2026-09-01'],
+      'Asia/Jerusalem',
+      new Date('2026-08-30T20:50:00Z'),
+    )).toMatchObject({ date: '2026-08-31', time: '00:05' })
   })
 
   it('adds days across month boundaries', () => {
@@ -95,5 +113,14 @@ describe('friends session logic', () => {
       durationMinutes: 'Duration must be between 15 and 360 minutes.',
       note: 'Note must be 240 characters or less.',
     })
+  })
+
+  it('rejects a workout time that has already passed', () => {
+    expect(validateSessionDraft(
+      { date: '2026-08-30', time: '08:00', durationMinutes: 60, kind: 'crossfit', note: '' },
+      ['2026-08-30', '2026-08-31', '2026-09-01'],
+      'Asia/Jerusalem',
+      new Date('2026-08-30T06:30:00Z'),
+    )).toEqual({ time: 'Choose a time that has not passed.' })
   })
 })
