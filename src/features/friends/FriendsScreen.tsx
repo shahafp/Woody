@@ -4,12 +4,14 @@ import { useParams } from 'react-router'
 import { AuthSignInOptions } from '@/features/auth/AuthSignInOptions'
 import { useAuthStore } from '@/features/auth/authStore'
 import {
+  createDefaultSessionDraft,
   dateKey,
   findNearbySessions,
   formatDateTab,
   formatSessionTime,
   groupSessionsByDate,
   planningDates,
+  planningDatesFromDateKey,
   sessionPhase,
   validateSessionDraft,
   zonedDateTimeToIso,
@@ -47,6 +49,26 @@ const secondaryButton = 'min-h-11 rounded-xl bg-edge px-4 py-2.5 font-semibold t
 function ErrorMessage({ message }: { message: string | null }) {
   if (!message) return null
   return <p role="alert" className="mt-3 rounded-xl bg-alarm/15 px-3 py-2 text-sm text-alarm">{message}</p>
+}
+
+function usePlanningDateKey(timeZone: string): string {
+  const [today, setToday] = useState(() => dateKey(new Date(), timeZone))
+
+  useEffect(() => {
+    const update = () => setToday(dateKey(new Date(), timeZone))
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') update()
+    }
+    update()
+    const interval = window.setInterval(update, 60_000)
+    document.addEventListener('visibilitychange', handleVisibility)
+    return () => {
+      window.clearInterval(interval)
+      document.removeEventListener('visibilitychange', handleVisibility)
+    }
+  }, [timeZone])
+
+  return today
 }
 
 function SignInCard() {
@@ -141,11 +163,12 @@ function Modal({ title, onClose, children }: { title: string; onClose: () => voi
   )
 }
 
-function AddSessionModal({ dates, timeZone, sessions, userId, initialDraft, title = 'When are you training?', submitLabel = 'Add my workout', onClose, onCreated, onJoin }: {
+function AddSessionModal({ dates, timeZone, sessions, userId, initialDate, initialDraft, title = 'When are you training?', submitLabel = 'Add my workout', onClose, onCreated, onJoin }: {
   dates: string[]
   timeZone: string
   sessions: FriendSession[]
   userId: string
+  initialDate?: string
   initialDraft?: SessionDraft
   title?: string
   submitLabel?: string
@@ -153,21 +176,19 @@ function AddSessionModal({ dates, timeZone, sessions, userId, initialDraft, titl
   onCreated: (draft: SessionDraft) => Promise<void>
   onJoin: (sessionId: string) => Promise<void>
 }) {
-  const suggested = new Date(Date.now() + 15 * 60_000)
-  const suggestedDate = dateKey(suggested, timeZone)
-  const [draft, setDraft] = useState<SessionDraft>(initialDraft ?? {
-    date: dates.includes(suggestedDate) ? suggestedDate : dates[0],
-    time: formatSessionTime(suggested.toISOString(), timeZone),
-    durationMinutes: 60,
-    kind: 'crossfit',
-    note: '',
-  })
+  const [draft, setDraft] = useState<SessionDraft>(() => (
+    initialDraft ?? createDefaultSessionDraft(dates, timeZone, new Date(), initialDate)
+  ))
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const errors = validateSessionDraft(draft, dates)
+  const errors = validateSessionDraft(draft, dates, timeZone)
   const nearby = Object.keys(errors).length
     ? []
     : findNearbySessions(sessions, zonedDateTimeToIso(draft.date, draft.time, timeZone), userId)
+
+  useEffect(() => {
+    setDraft((current) => dates.includes(current.date) ? current : { ...current, date: dates[0] })
+  }, [dates])
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault()
@@ -301,7 +322,8 @@ export function FriendsScreen() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const timeZone = bootstrap?.group?.timezone ?? 'Asia/Jerusalem'
-  const dates = useMemo(() => planningDates(new Date(), timeZone), [timeZone])
+  const planningToday = usePlanningDateKey(timeZone)
+  const dates = useMemo(() => planningDatesFromDateKey(planningToday), [planningToday])
   const activeDate = selectedDate && dates.includes(selectedDate) ? selectedDate : dates[0]
   const boardSessions = useMemo(
     () => sessions.filter((session) => session.status === 'scheduled' && sessionPhase(session) !== 'past'),
@@ -387,7 +409,7 @@ export function FriendsScreen() {
         <button type="button" disabled={!online} className={`${primaryButton} sticky bottom-20 mt-5 flex w-full items-center justify-center gap-2 shadow-xl`} onClick={() => setAddOpen(true)}><CalendarPlus aria-hidden="true" /> Add my workout</button>
       </>}
       <ErrorMessage message={error} />
-      {addOpen && bootstrap?.group && userId && <AddSessionModal dates={dates} timeZone={timeZone} sessions={sessions} userId={userId} onClose={() => setAddOpen(false)} onCreated={(draft) => run(() => createFriendSession(bootstrap.group!, draft), true)} onJoin={(id) => run(() => joinSession(id), true)} />}
+      {addOpen && bootstrap?.group && userId && <AddSessionModal dates={dates} timeZone={timeZone} sessions={sessions} userId={userId} initialDate={activeDate} onClose={() => setAddOpen(false)} onCreated={(draft) => run(() => createFriendSession(bootstrap.group!, draft), true)} onJoin={(id) => run(() => joinSession(id), true)} />}
       {editSession && bootstrap?.group && userId && <AddSessionModal dates={dates} timeZone={timeZone} sessions={sessions} userId={userId} title="Edit workout" submitLabel="Save changes" initialDraft={{ date: dateKey(new Date(editSession.startsAt), timeZone), time: formatSessionTime(editSession.startsAt, timeZone), durationMinutes: editSession.durationMinutes, kind: editSession.kind, note: editSession.note ?? '' }} onClose={() => setEditSession(null)} onCreated={(draft) => run(() => updateFriendSession(bootstrap.group!, editSession.id, draft), true)} onJoin={(id) => run(() => joinSession(id), true)} />}
       {inviteSession && userId && <InviteModal session={inviteSession} members={members} userId={userId} onClose={() => setInviteSession(null)} />}
     </div>

@@ -68,8 +68,34 @@ export function planningDates(
   now = new Date(),
   timeZone = FRIENDS_TIMEZONE,
 ): string[] {
-  const today = dateKey(now, timeZone)
+  return planningDatesFromDateKey(dateKey(now, timeZone))
+}
+
+export function planningDatesFromDateKey(today: string): string[] {
   return Array.from({ length: PLANNING_DAYS }, (_, index) => addDays(today, index))
+}
+
+export function createDefaultSessionDraft(
+  allowedDates: string[],
+  timeZone = FRIENDS_TIMEZONE,
+  now = new Date(),
+  preferredDate?: string,
+): SessionDraft {
+  const suggested = new Date(now.getTime() + 15 * 60_000)
+  const suggestedDate = dateKey(suggested, timeZone)
+  const date = preferredDate && allowedDates.includes(preferredDate)
+    ? preferredDate
+    : allowedDates.includes(suggestedDate)
+      ? suggestedDate
+      : allowedDates[0]
+
+  return {
+    date,
+    time: formatSessionTime(suggested.toISOString(), timeZone),
+    durationMinutes: 60,
+    kind: 'crossfit',
+    note: '',
+  }
 }
 
 /** Convert a wall-clock value in an IANA timezone to a UTC instant. */
@@ -176,10 +202,18 @@ export interface SessionDraftErrors {
 export function validateSessionDraft(
   draft: SessionDraft,
   allowedDates: string[],
+  timeZone = FRIENDS_TIMEZONE,
+  now = new Date(),
 ): SessionDraftErrors {
   const errors: SessionDraftErrors = {}
   if (!allowedDates.includes(draft.date)) errors.date = 'Choose one of the available days.'
   if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(draft.time)) errors.time = 'Enter a valid time.'
+  if (!errors.date && !errors.time) {
+    const startsAt = new Date(zonedDateTimeToIso(draft.date, draft.time, timeZone)).getTime()
+    if (startsAt < now.getTime() - 15 * 60_000) {
+      errors.time = 'Choose a time that has not passed.'
+    }
+  }
   if (draft.durationMinutes < 15 || draft.durationMinutes > 360) {
     errors.durationMinutes = 'Duration must be between 15 and 360 minutes.'
   }
